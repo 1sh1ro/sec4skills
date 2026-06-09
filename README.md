@@ -77,7 +77,7 @@ Published contest image:
 
 ```text
 ghcr.io/1sh1ro/sec4skills:contest
-sha256:5d5b0e0b8e5e4d7fb97c79cd5408e19b66e8742899f608f8872a2ac6cfbad10b
+sha256:04a23bc3699872875fd00389f7b44e6d5aeed0b1abaad86d4ee4f0bcfc8b02e8
 ```
 
 The repository `dist/sec4skills-track-b-submission.tar.gz` archive follows the
