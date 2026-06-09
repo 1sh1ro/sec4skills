@@ -4,6 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - Dockerfile
+      - pyproject.toml
+      - skillmri/**
 
 permissions:
   contents: read

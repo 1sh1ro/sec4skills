@@ -67,6 +67,31 @@ docker tag skillmri:latest ghcr.io/<owner>/skillmri:latest
 docker push ghcr.io/<owner>/skillmri:latest
 ```
 
+## Track B Submission Package
+
+The contest sample package is a small `.tar.gz` source and metadata archive,
+not a `docker save` image archive. Docker is delivered through GitHub Container
+Registry and bound by digest in `submission.json`.
+
+Published contest image:
+
+```text
+ghcr.io/1sh1ro/sec4skills:contest
+sha256:5d5b0e0b8e5e4d7fb97c79cd5408e19b66e8742899f608f8872a2ac6cfbad10b
+```
+
+The repository `dist/sec4skills-track-b-submission.tar.gz` archive contains:
+
+- `submission.json`
+- `design.md`
+- `self_test_report.md`
+- `results.example.jsonl`
+- complete SkillMRI source, Dockerfile, tests, and examples
+
+It is kept below the 16 MB upload limit. Do not use a compressed `docker save`
+tarball for that upload limit; the local Docker image archive is larger because
+it includes the Python base image layers.
+
 ## Training And Evaluation
 
 Build the curated black/white/gray corpus, train the local evidence scorer, and evaluate the full scanner:

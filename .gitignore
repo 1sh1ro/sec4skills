@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Historical local docker-save archive. The contest upload package is the
+# source/metadata tarball under dist/sec4skills-track-b-submission.tar.gz.
+dist/skillmri-contest.tar.gz
+dist/skillmri-contest.tar.gz.sha256
