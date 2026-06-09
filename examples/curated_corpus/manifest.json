@@ -1,0 +1,594 @@
+[
+  {
+    "name": "benign_file_summarizer",
+    "path": "samples/benign_file_summarizer",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "OWASP AST10 benign control",
+    "description": "Reads user-selected markdown files and summarizes them locally."
+  },
+  {
+    "name": "benign_api_status_checker",
+    "path": "samples/benign_api_status_checker",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "Cisco skill-scanner benign network baseline",
+    "description": "Clearly declares limited network access to a configured status endpoint."
+  },
+  {
+    "name": "benign_cleanup_tool",
+    "path": "samples/benign_cleanup_tool",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware false-positive control",
+    "description": "Declares cleanup behavior and removes only generated cache files."
+  },
+  {
+    "name": "benign_cli_formatter",
+    "path": "samples/benign_cli_formatter",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "SkillSieve tool-use benign control",
+    "description": "Declares a local formatter command and does not touch secrets or network."
+  },
+  {
+    "name": "benign_secret_linter",
+    "path": "samples/benign_secret_linter",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware security tool control",
+    "description": "Security linter declares credential scanning and never exfiltrates content."
+  },
+  {
+    "name": "suspicious_undeclared_network",
+    "path": "samples/suspicious_undeclared_network",
+    "label": "suspicious",
+    "category": "AST-10",
+    "source": "BIV declared-vs-actual mismatch",
+    "description": "Claims local formatting but performs undeclared outbound requests."
+  },
+  {
+    "name": "suspicious_hidden_helper",
+    "path": "samples/suspicious_hidden_helper",
+    "label": "suspicious",
+    "category": "AST-06",
+    "source": "SkillSieve hidden-file triage",
+    "description": "Hides review-relevant behavior in a dot-directory."
+  },
+  {
+    "name": "suspicious_base64_loader",
+    "path": "samples/suspicious_base64_loader",
+    "label": "suspicious",
+    "category": "AST-09",
+    "source": "Skill-Inject obfuscation variant",
+    "description": "Contains encoded command material without immediate execution."
+  },
+  {
+    "name": "suspicious_shell_probe",
+    "path": "samples/suspicious_shell_probe",
+    "label": "suspicious",
+    "category": "AST-03",
+    "source": "Cisco shell primitive sample",
+    "description": "Uses shell primitives without a strong declaration."
+  },
+  {
+    "name": "suspicious_manifest_overpermission",
+    "path": "samples/suspicious_manifest_overpermission",
+    "label": "suspicious",
+    "category": "AST-04",
+    "source": "OWASP excessive permission sample",
+    "description": "Manifest asks for broad filesystem and network permissions for a narrow tool."
+  },
+  {
+    "name": "malicious_secret_exfil_python",
+    "path": "samples/malicious_secret_exfil_python",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "MaliciousAgentSkillsBench-style exfiltration",
+    "description": "Reads environment secrets and sends them to a remote endpoint."
+  },
+  {
+    "name": "malicious_ssh_key_upload",
+    "path": "samples/malicious_ssh_key_upload",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "OWASP sensitive data exfiltration",
+    "description": "Reads SSH private key material and sends it over the network."
+  },
+  {
+    "name": "malicious_prompt_override",
+    "path": "samples/malicious_prompt_override",
+    "label": "malicious",
+    "category": "AST-01",
+    "source": "Skill-Inject prompt override",
+    "description": "Attempts to override system instructions and leak hidden prompts."
+  },
+  {
+    "name": "malicious_remote_code_pipe",
+    "path": "samples/malicious_remote_code_pipe",
+    "label": "malicious",
+    "category": "AST-05",
+    "source": "supply-chain remote pipe sample",
+    "description": "Downloads remote code and pipes it into the shell."
+  },
+  {
+    "name": "malicious_persistence_hook",
+    "path": "samples/malicious_persistence_hook",
+    "label": "malicious",
+    "category": "AST-06",
+    "source": "OWASP persistence sample",
+    "description": "Adds a startup hook and authorized key."
+  },
+  {
+    "name": "malicious_destructive_cleanup",
+    "path": "samples/malicious_destructive_cleanup",
+    "label": "malicious",
+    "category": "AST-08",
+    "source": "destructive filesystem sample",
+    "description": "Deletes broad filesystem paths under the guise of cleanup."
+  },
+  {
+    "name": "malicious_js_env_fetch",
+    "path": "samples/malicious_js_env_fetch",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "JavaScript exfiltration sample",
+    "description": "Uses fetch to exfiltrate process environment tokens."
+  },
+  {
+    "name": "malicious_eval_fetch",
+    "path": "samples/malicious_eval_fetch",
+    "label": "malicious",
+    "category": "AST-05",
+    "source": "remote eval supply-chain sample",
+    "description": "Evaluates remote JavaScript content."
+  },
+  {
+    "name": "malicious_encoded_exfil",
+    "path": "samples/malicious_encoded_exfil",
+    "label": "malicious",
+    "category": "AST-09",
+    "source": "Skill-Inject encoded payload",
+    "description": "Combines base64 decoding with secret access and network egress."
+  },
+  {
+    "name": "malicious_command_injection",
+    "path": "samples/malicious_command_injection",
+    "label": "malicious",
+    "category": "AST-03",
+    "source": "dangerous shell execution sample",
+    "description": "Runs user-controlled data through a shell."
+  },
+  {
+    "name": "malicious_cross_file_payload",
+    "path": "samples/malicious_cross_file_payload",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "cross-file split payload sample",
+    "description": "Splits declaration and exfiltration across multiple files."
+  },
+  {
+    "name": "benign_curated_01",
+    "path": "samples/benign_curated_01",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware benign corpus",
+    "description": "Summarizes selected README files locally."
+  },
+  {
+    "name": "benign_curated_02",
+    "path": "samples/benign_curated_02",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware benign corpus",
+    "description": "Counts Python lines without network or secret access."
+  },
+  {
+    "name": "benign_curated_03",
+    "path": "samples/benign_curated_03",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "Cisco skill-scanner benign network baseline",
+    "description": "Fetches a declared public JSON feed."
+  },
+  {
+    "name": "benign_curated_04",
+    "path": "samples/benign_curated_04",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware security tool control",
+    "description": "Finds possible secrets locally but does not transmit content."
+  },
+  {
+    "name": "benign_curated_05",
+    "path": "samples/benign_curated_05",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "SkillSieve tool-use benign control",
+    "description": "Runs a declared local formatter command."
+  },
+  {
+    "name": "benign_curated_06",
+    "path": "samples/benign_curated_06",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware false-positive control",
+    "description": "Deletes only generated test output."
+  },
+  {
+    "name": "benign_curated_07",
+    "path": "samples/benign_curated_07",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "OWASP AST10 benign control",
+    "description": "Writes a deterministic local report."
+  },
+  {
+    "name": "benign_curated_08",
+    "path": "samples/benign_curated_08",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware benign corpus",
+    "description": "Parses package metadata without installing anything."
+  },
+  {
+    "name": "benign_curated_09",
+    "path": "samples/benign_curated_09",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware benign corpus",
+    "description": "Uses declared shell command for harmless git status."
+  },
+  {
+    "name": "benign_curated_10",
+    "path": "samples/benign_curated_10",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware security tool control",
+    "description": "Checks Dockerfile for risky patterns locally."
+  },
+  {
+    "name": "benign_curated_11",
+    "path": "samples/benign_curated_11",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "Cisco skill-scanner benign network baseline",
+    "description": "Posts declared metrics without local content."
+  },
+  {
+    "name": "benign_curated_12",
+    "path": "samples/benign_curated_12",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware benign corpus",
+    "description": "Converts markdown to HTML locally."
+  },
+  {
+    "name": "benign_curated_13",
+    "path": "samples/benign_curated_13",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "OWASP AST10 benign control",
+    "description": "Reads user-specified CSV and prints aggregate counts."
+  },
+  {
+    "name": "benign_curated_14",
+    "path": "samples/benign_curated_14",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware false-positive control",
+    "description": "Uses base64 for normal user-provided decoding."
+  },
+  {
+    "name": "benign_curated_15",
+    "path": "samples/benign_curated_15",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "SkillSieve tool-use benign control",
+    "description": "Runs declared test command without shell expansion."
+  },
+  {
+    "name": "benign_curated_16",
+    "path": "samples/benign_curated_16",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware security tool control",
+    "description": "Reads SBOM files and flags vulnerable package names locally."
+  },
+  {
+    "name": "benign_curated_17",
+    "path": "samples/benign_curated_17",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "OWASP AST10 benign control",
+    "description": "Creates a local changelog from git log output."
+  },
+  {
+    "name": "benign_curated_18",
+    "path": "samples/benign_curated_18",
+    "label": "benign",
+    "category": "BENIGN",
+    "source": "repo-aware benign corpus",
+    "description": "Reads public website after declaring web access."
+  },
+  {
+    "name": "suspicious_curated_01",
+    "path": "samples/suspicious_curated_01",
+    "label": "suspicious",
+    "category": "AST-10",
+    "source": "BIV declared-vs-actual mismatch",
+    "description": "Claims local docs help but sends telemetry."
+  },
+  {
+    "name": "suspicious_curated_02",
+    "path": "samples/suspicious_curated_02",
+    "label": "suspicious",
+    "category": "AST-04",
+    "source": "OWASP excessive permission sample",
+    "description": "Narrow skill requests all filesystem and network permissions."
+  },
+  {
+    "name": "suspicious_curated_03",
+    "path": "samples/suspicious_curated_03",
+    "label": "suspicious",
+    "category": "AST-06",
+    "source": "SkillSieve hidden-file triage",
+    "description": "Helper behavior is placed in hidden hook file."
+  },
+  {
+    "name": "suspicious_curated_04",
+    "path": "samples/suspicious_curated_04",
+    "label": "suspicious",
+    "category": "AST-09",
+    "source": "Skill-Inject obfuscation variant",
+    "description": "Contains encoded command material without execution."
+  },
+  {
+    "name": "suspicious_curated_05",
+    "path": "samples/suspicious_curated_05",
+    "label": "suspicious",
+    "category": "AST-03",
+    "source": "Cisco shell primitive sample",
+    "description": "Uses shell with fixed command but weak declaration."
+  },
+  {
+    "name": "suspicious_curated_06",
+    "path": "samples/suspicious_curated_06",
+    "label": "suspicious",
+    "category": "AST-07",
+    "source": "repo-aware gray sample",
+    "description": "Declared upload but sends more metadata than needed."
+  },
+  {
+    "name": "suspicious_curated_07",
+    "path": "samples/suspicious_curated_07",
+    "label": "suspicious",
+    "category": "AST-10",
+    "source": "BIV declared-vs-actual mismatch",
+    "description": "Reads filesystem despite only claiming calculation."
+  },
+  {
+    "name": "suspicious_curated_08",
+    "path": "samples/suspicious_curated_08",
+    "label": "suspicious",
+    "category": "AST-04",
+    "source": "OWASP excessive permission sample",
+    "description": "Requests secrets permission for public API status check."
+  },
+  {
+    "name": "suspicious_curated_09",
+    "path": "samples/suspicious_curated_09",
+    "label": "suspicious",
+    "category": "AST-09",
+    "source": "Skill-Inject obfuscation variant",
+    "description": "Uses zero-width text in prompt content."
+  },
+  {
+    "name": "suspicious_curated_10",
+    "path": "samples/suspicious_curated_10",
+    "label": "suspicious",
+    "category": "AST-07",
+    "source": "Cisco skill-scanner gray network sample",
+    "description": "References webhook without explaining data boundaries."
+  },
+  {
+    "name": "suspicious_curated_11",
+    "path": "samples/suspicious_curated_11",
+    "label": "suspicious",
+    "category": "AST-06",
+    "source": "SkillSieve hidden-file triage",
+    "description": "Package install hook exists without clear user-facing purpose."
+  },
+  {
+    "name": "suspicious_curated_12",
+    "path": "samples/suspicious_curated_12",
+    "label": "suspicious",
+    "category": "AST-10",
+    "source": "BIV declared-vs-actual mismatch",
+    "description": "Network dependency appears in helper module, not declaration."
+  },
+  {
+    "name": "suspicious_curated_13",
+    "path": "samples/suspicious_curated_13",
+    "label": "suspicious",
+    "category": "AST-04",
+    "source": "OWASP excessive permission sample",
+    "description": "Manifest grants shell for read-only markdown conversion."
+  },
+  {
+    "name": "suspicious_curated_14",
+    "path": "samples/suspicious_curated_14",
+    "label": "suspicious",
+    "category": "AST-02",
+    "source": "repo-aware gray sample",
+    "description": "Reads browser cache path for convenience feature."
+  },
+  {
+    "name": "suspicious_curated_15",
+    "path": "samples/suspicious_curated_15",
+    "label": "suspicious",
+    "category": "AST-03",
+    "source": "Cisco shell primitive sample",
+    "description": "Uses eval for template expressions."
+  },
+  {
+    "name": "malicious_curated_01",
+    "path": "samples/malicious_curated_01",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "MaliciousAgentSkillsBench-style exfiltration",
+    "description": "Exfiltrates environment variables to a remote endpoint."
+  },
+  {
+    "name": "malicious_curated_02",
+    "path": "samples/malicious_curated_02",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "OWASP sensitive data exfiltration",
+    "description": "Uploads SSH key material."
+  },
+  {
+    "name": "malicious_curated_03",
+    "path": "samples/malicious_curated_03",
+    "label": "malicious",
+    "category": "AST-01",
+    "source": "Skill-Inject prompt override",
+    "description": "Prompt text overrides system instructions."
+  },
+  {
+    "name": "malicious_curated_04",
+    "path": "samples/malicious_curated_04",
+    "label": "malicious",
+    "category": "AST-05",
+    "source": "supply-chain remote pipe sample",
+    "description": "Pipes remote installer into shell."
+  },
+  {
+    "name": "malicious_curated_05",
+    "path": "samples/malicious_curated_05",
+    "label": "malicious",
+    "category": "AST-06",
+    "source": "OWASP persistence sample",
+    "description": "Adds backdoor authorized key."
+  },
+  {
+    "name": "malicious_curated_06",
+    "path": "samples/malicious_curated_06",
+    "label": "malicious",
+    "category": "AST-08",
+    "source": "destructive filesystem sample",
+    "description": "Deletes broad home directory path."
+  },
+  {
+    "name": "malicious_curated_07",
+    "path": "samples/malicious_curated_07",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "JavaScript exfiltration sample",
+    "description": "Exfiltrates process environment from JavaScript."
+  },
+  {
+    "name": "malicious_curated_08",
+    "path": "samples/malicious_curated_08",
+    "label": "malicious",
+    "category": "AST-05",
+    "source": "remote eval supply-chain sample",
+    "description": "Evaluates remote JavaScript payload."
+  },
+  {
+    "name": "malicious_curated_09",
+    "path": "samples/malicious_curated_09",
+    "label": "malicious",
+    "category": "AST-09",
+    "source": "Skill-Inject encoded payload",
+    "description": "Combines base64 decode and token exfiltration."
+  },
+  {
+    "name": "malicious_curated_10",
+    "path": "samples/malicious_curated_10",
+    "label": "malicious",
+    "category": "AST-03",
+    "source": "dangerous shell execution sample",
+    "description": "Runs user-controlled shell command."
+  },
+  {
+    "name": "malicious_curated_11",
+    "path": "samples/malicious_curated_11",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "cross-file split payload sample",
+    "description": "Splits secret read and network send across files."
+  },
+  {
+    "name": "malicious_curated_12",
+    "path": "samples/malicious_curated_12",
+    "label": "malicious",
+    "category": "AST-03",
+    "source": "Cisco reverse shell sample",
+    "description": "Contains reverse shell primitive."
+  },
+  {
+    "name": "malicious_curated_13",
+    "path": "samples/malicious_curated_13",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "OWASP sensitive data exfiltration",
+    "description": "Reads browser credential stores."
+  },
+  {
+    "name": "malicious_curated_14",
+    "path": "samples/malicious_curated_14",
+    "label": "malicious",
+    "category": "AST-06",
+    "source": "OWASP persistence sample",
+    "description": "Modifies shell startup file."
+  },
+  {
+    "name": "malicious_curated_15",
+    "path": "samples/malicious_curated_15",
+    "label": "malicious",
+    "category": "AST-08",
+    "source": "destructive filesystem sample",
+    "description": "Deletes secret files specifically."
+  },
+  {
+    "name": "malicious_curated_16",
+    "path": "samples/malicious_curated_16",
+    "label": "malicious",
+    "category": "AST-05",
+    "source": "supply-chain remote dependency sample",
+    "description": "Installs package from remote URL."
+  },
+  {
+    "name": "malicious_curated_17",
+    "path": "samples/malicious_curated_17",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "MaliciousAgentSkillsBench-style exfiltration",
+    "description": "Uses webhook to send token."
+  },
+  {
+    "name": "malicious_curated_18",
+    "path": "samples/malicious_curated_18",
+    "label": "malicious",
+    "category": "AST-01",
+    "source": "Skill-Inject prompt override",
+    "description": "Uses hidden high-priority instruction wording."
+  },
+  {
+    "name": "malicious_curated_19",
+    "path": "samples/malicious_curated_19",
+    "label": "malicious",
+    "category": "AST-09",
+    "source": "Skill-Inject encoded payload",
+    "description": "Uses hex escapes and remote egress."
+  },
+  {
+    "name": "malicious_curated_20",
+    "path": "samples/malicious_curated_20",
+    "label": "malicious",
+    "category": "AST-02",
+    "source": "OWASP sensitive data exfiltration",
+    "description": "Reads cloud credential config."
+  }
+]
