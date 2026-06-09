@@ -28,6 +28,56 @@ Synthetic two-skill smoke result:
 - Local elapsed time for two skills: about `0.162s`
 - Estimated per-skill detection time on this smoke run: about `0.081s`
 
+## Submission Format And Packaging Validation
+
+The uploaded archive `dist/sec4skills-track-b-submission.tar.gz` was validated
+before upload against the platform sample layout.
+
+Required files present:
+
+- `Dockerfile`
+- `engine/engine.py`
+- `submission.json`
+- `design.md`
+- `self_test_report.md`
+- `results.example.jsonl`
+
+Archive checks:
+
+- Archive size: 57 KB class, below the 16 MB upload limit
+- Forbidden cache/archive entries: none found for `__pycache__`, `.pyc`, or
+  historical `skillmri-contest` image tarballs
+- `submission.json` image digest matches the pulled GHCR image digest
+- Docker build from the exact archive completed successfully
+
+## Packaging Performance Validation
+
+The same 74-sample curated corpus was scanned in four execution forms:
+
+1. Source tree, `python3 -m skillmri contest`
+2. Extracted submission archive, `python engine/engine.py contest`
+3. Docker image built from the extracted submission archive
+4. Published GHCR image, `ghcr.io/1sh1ro/sec4skills:contest`
+
+All four forms produced identical `results.jsonl` rows. Verdict distribution:
+
+- `benign`: 21
+- `suspicious`: 20
+- `malicious`: 33
+
+Timing, with one warmup run and five measured runs:
+
+| Execution form | Mean total time | Mean per-skill time | Output match |
+| --- | ---: | ---: | --- |
+| Source Python | `0.2970s` | `0.004013s` | yes |
+| Extracted archive Python entrypoint | `0.2876s` | `0.003886s` | yes |
+| Docker built from archive | `2.0118s` | `0.027187s` | yes |
+| Published GHCR Docker | `1.9799s` | `0.026756s` | yes |
+
+The extracted archive Python entrypoint is at the same performance level as the
+source tree. The Docker forms are also mutually consistent; their extra time is
+container startup overhead, not a packaging-induced scanner behavior change.
+
 ## Internal Validation
 
 The curated development corpus contains 74 samples: 23 benign, 20 suspicious,
