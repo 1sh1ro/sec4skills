@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - Dockerfile
+      - engine/**
       - pyproject.toml
       - skillmri/**
 

@@ -1,12 +1,11 @@
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
 
 WORKDIR /app
-COPY pyproject.toml README.md /app/
+COPY engine /app/engine
 COPY skillmri /app/skillmri
-RUN pip install --no-cache-dir /app
 
-ENTRYPOINT ["skillmri"]
-CMD ["contest"]
+ENTRYPOINT ["python", "/app/engine/engine.py"]

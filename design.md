@@ -7,6 +7,7 @@ Docker image runs the contest interface:
 - Output: `/output/results.jsonl`
 - Runtime network dependency: none
 - LLM/token dependency: none, token usage is `0`
+- Build-time package download dependency: none
 
 ## Detection Pipeline
 
@@ -37,6 +38,11 @@ limits file bytes and total file count to avoid unbounded memory or runtime on
 large skill packages.
 
 ## Docker Image
+
+The submission package follows the platform sample layout and includes
+`engine/engine.py` as the Docker entrypoint. The Dockerfile copies `engine/` and
+`skillmri/` directly and runs from source via `PYTHONPATH=/app`; it does not run
+`pip install` during image build.
 
 The published image is:
 

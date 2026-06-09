@@ -80,17 +80,21 @@ ghcr.io/1sh1ro/sec4skills:contest
 sha256:5d5b0e0b8e5e4d7fb97c79cd5408e19b66e8742899f608f8872a2ac6cfbad10b
 ```
 
-The repository `dist/sec4skills-track-b-submission.tar.gz` archive contains:
+The repository `dist/sec4skills-track-b-submission.tar.gz` archive follows the
+platform sample layout and contains:
 
 - `submission.json`
 - `design.md`
+- `engine/engine.py`
 - `self_test_report.md`
 - `results.example.jsonl`
 - complete SkillMRI source, Dockerfile, tests, and examples
 
-It is kept below the 16 MB upload limit. Do not use a compressed `docker save`
-tarball for that upload limit; the local Docker image archive is larger because
-it includes the Python base image layers.
+It is kept below the 16 MB upload limit. The Dockerfile copies `engine/` and
+`skillmri/` directly and does not run `pip install`, so image build does not
+need package downloads. Do not use a compressed `docker save` tarball for that
+upload limit; the local Docker image archive is larger because it includes the
+Python base image layers.
 
 ## Training And Evaluation
 

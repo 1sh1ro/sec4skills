@@ -2,11 +2,13 @@
 
 ## Required Interface
 
-- Docker entrypoint: `skillmri contest`
+- Docker entrypoint: `python /app/engine/engine.py`
+- Source entrypoint in package: `engine/engine.py`
 - Input path: `/data/skills/{skill_id}/`
 - Output path: `/output/results.jsonl`
 - Output fields: `skill_id`, `verdict`, `confidence`, `category`, `evidence`
 - Runtime network: not required
+- Build-time package downloads: not required
 - LLM token usage: `0`
 
 ## Local Smoke Test
