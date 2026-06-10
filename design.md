@@ -36,6 +36,10 @@ Docker image runs the contest interface:
 9. Emit a single Track B row per skill with `verdict`, confidence, primary
    OWASP AST category, concise file/line evidence, and compatibility aliases
    `engine_category` and `evidence_text`.
+10. Apply a contest-only high-recall output policy: concrete non-`AST10`
+    evidence is submitted as at least `suspicious` unless it is a known
+    low-risk benign control. This keeps the internal scanner interpretable
+    while aligning the submitted JSONL with the recall-weighted F2 objective.
 
 ## Lightweight ML Layer
 
@@ -102,7 +106,7 @@ ghcr.io/1sh1ro/sec4skills:contest
 Bound digest:
 
 ```text
-sha256:3de4acf409a3a47db447c7498f413e44d2704da26b85e2faccbf80451da7c277
+sha256:e2a8ce6b01f83d4032b5742cd103ed7c3637869be89ed7f5b4a29a76a68b9492
 ```
 
 The submission archive is intentionally a small source and metadata package,

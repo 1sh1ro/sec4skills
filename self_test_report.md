@@ -36,6 +36,11 @@ detection quality and evaluator compatibility with generalized changes:
   unbounded extraction
 - package-level dataflow links sensitive sources to network, shell, dynamic
   loader, or serialized artifact sinks
+- contest JSONL output is more recall-oriented than the internal scanner:
+  concrete non-`AST10` evidence is reported as at least `suspicious` unless it
+  matches a low-risk benign control
+- AST07/AST08/AST09 coverage was added for update drift, scanner evasion, and
+  governance bypass patterns
 - broad filesystem/network/secret/shell permission manifests map to `AST03`
 - obfuscated metadata and hidden non-skill files map to `AST04`
 - unsafe YAML/object/prototype deserialization markers map to `AST05`
@@ -100,9 +105,9 @@ The same 74-sample curated corpus was scanned in two execution forms:
 
 Both forms produced identical `results.jsonl` rows. Verdict distribution:
 
-- `benign`: 27
-- `suspicious`: 14
-- `malicious`: 33
+- `benign`: 15
+- `suspicious`: 23
+- `malicious`: 36
 
 Timing, with one warmup run and five measured runs:
 

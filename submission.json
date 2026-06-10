@@ -1,10 +1,10 @@
 {
   "schema_version": "skillsec.track-b.submission.v1",
-  "submission_id": "sub-sec4skills-skillmri-v0.1.7",
+  "submission_id": "sub-sec4skills-skillmri-v0.1.8",
   "team_id": "1sh1ro",
   "engine_name": "SkillMRI",
-  "engine_version": "0.1.7",
-  "image_digest": "sha256:3de4acf409a3a47db447c7498f413e44d2704da26b85e2faccbf80451da7c277",
+  "engine_version": "0.1.8",
+  "image_digest": "sha256:e2a8ce6b01f83d4032b5742cd103ed7c3637869be89ed7f5b4a29a76a68b9492",
   "design_ref": "design.md",
   "self_test_report_ref": "self_test_report.md",
   "results_schema": "results.example.jsonl"

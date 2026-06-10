@@ -13,6 +13,7 @@ The scanner combines four layers:
 7. Lightweight semantic ML: a pure-Python n-gram linear classifier packaged as a small JSON model adds weak semantic evidence without Torch/sklearn/transformers.
 8. Optional online LLM classifier: an OpenAI-compatible judge can be enabled for local experiments, but it is off by default for contest Docker runs.
 9. RL-tuned evidence scoring: a compact offline policy can rank evidence combinations for F2-oriented recall while preserving the static evidence graph.
+10. Contest high-recall output: the public scanner keeps conservative internal labels, while the Track B JSONL output reports concrete non-`AST10` evidence as at least `suspicious` unless it matches a low-risk benign control pattern.
 
 ## Quick Start
 
@@ -83,7 +84,7 @@ Published contest image:
 
 ```text
 ghcr.io/1sh1ro/sec4skills:contest
-sha256:3de4acf409a3a47db447c7498f413e44d2704da26b85e2faccbf80451da7c277
+sha256:e2a8ce6b01f83d4032b5742cd103ed7c3637869be89ed7f5b4a29a76a68b9492
 ```
 
 The repository `dist/sec4skills-track-b-submission.tar.gz` archive follows the
@@ -126,6 +127,13 @@ Current full-corpus regression score with the packaged contest defaults:
 - False negatives: 0
 - False positives: 5
 - Category accuracy: 0.8627
+
+Current contest JSONL distribution on the same corpus after the high-recall
+output strategy:
+
+- `benign`: 15
+- `suspicious`: 23
+- `malicious`: 36
 
 The v0.1.5 contest build also runs a separate 14-sample stress set that is not
 part of the curated development corpus. It covers pure-document exfiltration,
