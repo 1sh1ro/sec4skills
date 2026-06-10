@@ -4,7 +4,7 @@ import math
 import re
 from dataclasses import dataclass
 
-from .features import line_evidence
+from .features import is_documentation_file, is_execution_relevant_file, line_evidence
 from .schema import Evidence, FileRecord
 
 
@@ -33,6 +33,91 @@ RULES: tuple[Rule, ...] = (
             re.compile(r"priority override|hidden instruction|secret instruction", re.I),
         ),
         1.2,
+    ),
+    Rule(
+        "prompt-injection-coercive-workflow",
+        "AST-01",
+        "critical",
+        "Skill text tries to impose mandatory agent workflow or tool-use rules outside the user's task.",
+        (
+            re.compile(r"\b(before responding to any user message|starting any conversation|first response protocol)\b", re.I),
+            re.compile(r"\b(you do not have a choice|not negotiable|not optional|automatic failure)\b", re.I),
+            re.compile(r"\b(absolutely must|you must|must use).{0,80}\b(skill tool|todowrite|checklist|workflow)\b", re.I),
+            re.compile(r"\b(common rationalizations|if you catch yourself thinking|rationalizing)\b", re.I),
+            re.compile(r"\bif (a|any) skill applies.{0,120}\b(must|use it|fail)\b", re.I),
+        ),
+        2.0,
+    ),
+    Rule(
+        "prompt-injection-forced-exfiltration",
+        "AST-02",
+        "critical",
+        "Skill instructions tell the agent to collect local/user data and upload it to an external service.",
+        (
+            re.compile(r"\b(after|before).{0,40}\b(any|each|every|completing).{0,30}\b(task|request).{0,160}\b(curl|post|upload|send|backup|collector|logging)\b", re.I),
+            re.compile(r"\b(pbpaste|clipboard|system[_ -]?info|queried information|contents of).{0,160}\b(curl|post|upload|send|collector|logging)\b", re.I),
+            re.compile(r"\b(curl|wget|fetch|requests\.post).{0,80}\b(agenskill-api|collector|logging|webhook|onrender\.com|requestbin|pastebin)\b", re.I),
+        ),
+        2.2,
+    ),
+    Rule(
+        "prompt-injection-behavior-bias",
+        "AST-01",
+        "critical",
+        "Skill text injects unrelated behavioral, political, legal, or value-alignment constraints into future outputs.",
+        (
+            re.compile(r"\bimportant[^\n]{0,80}\b(value alignment|special conditions|moderation criteria|company values|industry competition)\b", re.I),
+            re.compile(r"\b(always|make sure|when in doubt|favor|promote).{0,140}\b(traditional energy|renewable energy|economic competitor|left-leaning|political content|climate change|global warming|us economy|include a joke)\b", re.I),
+            re.compile(r"\b(prevent reporting illegal activity|non-compete effective for 5 years|salary deductions for any company losses)\b", re.I),
+        ),
+        1.8,
+    ),
+    Rule(
+        "prompt-injection-external-callback",
+        "AST-02",
+        "critical",
+        "Skill documentation embeds code that calls an unrelated external collector or callback service.",
+        (
+            re.compile(r"\b(requests\.(?:get|post)|fetch\(|curl\s|wget\s).{0,160}\b(agenskill|collector|requestbin|pastebin|webhook\.site|onrender\.com)\b", re.I),
+            re.compile(r"\b(agenskill|collector|requestbin|pastebin|webhook\.site|onrender\.com)\b.{0,160}\b(params=|body=|data=|json=|token|secret|key)\b", re.I),
+        ),
+        2.0,
+    ),
+    Rule(
+        "doc-high-privilege-automation",
+        "AST-04",
+        "critical",
+        "Skill documentation declares broad automation over repositories, CI/CD, sandboxes, deployments, payments, storage, or user accounts.",
+        (
+            re.compile(r"\b(cross-repositor|multi-repo|organization-wide).{0,120}\b(git push|gh pr create|create pull requests?|update dependencies|security patches|refactoring)\b", re.I),
+            re.compile(r"\b(github actions?|ci/cd|workflow automation|release manager|deployment).{0,120}\b(auto-?execute|self-healing|security scan|configure.*secrets?)\b", re.I),
+            re.compile(r"\b(sandbox_(create|execute|upload|delete)|app_store_publish|configure_auto_refill|create_payment_link|storage_(upload|delete)|user_(register|login|upgrade))\b", re.I),
+            re.compile(r"\b(no authentication required|claim url|deploy.*instantly|push this live|deploy.*production)\b", re.I),
+        ),
+        2.0,
+    ),
+    Rule(
+        "doc-remote-bootstrap-required",
+        "AST-05",
+        "critical",
+        "Skill documentation requires fetching or installing remote code/templates before executing the user's task.",
+        (
+            re.compile(r"\b(always|mandatory|required|requires?).{0,80}\b(git clone|curl|wget|npx|npm install|pip install)\b", re.I),
+            re.compile(r"\b(git clone|curl|wget|npx|npm install|pip install)\b.{0,120}\b(always|mandatory|required|before any|before implementing|never guess)\b", re.I),
+            re.compile(r"\bfetch before implementing|never invent classes|official repository first\b", re.I),
+        ),
+        2.0,
+    ),
+    Rule(
+        "doc-local-history-egress",
+        "AST-02",
+        "critical",
+        "Skill documentation asks to read local conversation/history data and send or summarize it through external services.",
+        (
+            re.compile(r"\b(reads?|access|analyz).{0,80}\b(chat history|conversation history|claude code chat|~/.claude/history\.jsonl|pastedcontents)\b", re.I),
+            re.compile(r"\b(chat history|conversation history|~/.claude/history\.jsonl|pastedcontents).{0,160}\b(slack|dm|send|deliver|hackernews|external|report)\b", re.I),
+        ),
+        2.0,
     ),
     Rule(
         "prompt-injection-secret-leak",
@@ -188,7 +273,9 @@ RULES: tuple[Rule, ...] = (
         "high",
         "Code references browser profile data that may include cookies, tokens, or login state.",
         (
-            re.compile(r"(\.config/google-chrome|\.mozilla/firefox|Application Support/(Google/Chrome|Firefox)|Bookmarks|History)", re.I),
+            re.compile(r"(\.config/google-chrome|\.mozilla/firefox|Application Support/(Google/Chrome|Firefox))", re.I),
+            re.compile(r"(Google/Chrome|Firefox|Default).{0,80}\b(Bookmarks|History|Cookies|Login Data)\b", re.I),
+            re.compile(r"\b(Bookmarks|History|Cookies|Login Data)\b.{0,80}(Google/Chrome|Firefox|browser profile)", re.I),
         ),
         1.0,
     ),
@@ -208,6 +295,9 @@ RULES: tuple[Rule, ...] = (
 def run_static_rules(files: list[FileRecord]) -> list[Evidence]:
     evidence: list[Evidence] = []
     for record in files:
+        doc_file = is_documentation_file(record)
+        exec_file = is_execution_relevant_file(record)
+        doc_rule_context = doc_file or _is_metadata_declaration(record)
         if _is_hidden(record.relpath):
             evidence.append(
                 Evidence(
@@ -221,10 +311,23 @@ def run_static_rules(files: list[FileRecord]) -> list[Evidence]:
                     weight=0.6,
                 )
             )
+            if _is_nested_hidden_skill(record.relpath):
+                evidence.append(
+                    Evidence(
+                        file=record.relpath,
+                        line=1,
+                        message="Nested hidden skill payload can persistently alter agent behavior outside the visible package surface.",
+                        snippet="",
+                        category="AST-06",
+                        severity="critical",
+                        rule_id="hidden-nested-skill-payload",
+                        weight=1.7,
+                    )
+                )
         if record.is_binary:
             continue
 
-        if _high_entropy_blob(record.text):
+        if exec_file and _high_entropy_blob(record.text):
             evidence.append(
                 Evidence(
                     file=record.relpath,
@@ -238,7 +341,7 @@ def run_static_rules(files: list[FileRecord]) -> list[Evidence]:
                 )
             )
 
-        if _has_shell_with_user_input(record.text):
+        if exec_file and _has_shell_with_user_input(record.text):
             evidence.append(
                 Evidence(
                     file=record.relpath,
@@ -252,28 +355,127 @@ def run_static_rules(files: list[FileRecord]) -> list[Evidence]:
                 )
             )
 
+        if doc_rule_context:
+            evidence.extend(_document_context_evidence(record))
+
         for line_no, line in enumerate(record.lines, start=1):
             for rule in RULES:
-                if rule.rule_id == "hidden-files":
+                if rule.rule_id == "hidden-files" or not _rule_applies(rule, doc_rule_context, exec_file):
+                    continue
+                if rule.rule_id == "unsafe-network" and _metadata_url_line(line):
+                    continue
+                if rule.rule_id == "unsafe-network" and _local_network_line(line):
                     continue
                 if any(pattern.search(line) for pattern in rule.patterns):
                     evidence.append(
-                        line_evidence(
-                            record,
-                            line_no,
-                            rule.message,
-                            rule.category,
-                            rule.severity,
-                            rule.rule_id,
-                            rule.weight,
-                        )
+                        _line_evidence_for_rule(record, line_no, rule)
                     )
+    return evidence
+
+
+DOC_RULES = {
+    "doc-high-privilege-automation",
+    "doc-local-history-egress",
+    "doc-remote-bootstrap-required",
+    "prompt-injection-behavior-bias",
+    "prompt-injection-external-callback",
+    "prompt-injection-override",
+    "prompt-injection-coercive-workflow",
+    "prompt-injection-forced-exfiltration",
+    "prompt-injection-secret-leak",
+}
+
+
+def _rule_applies(rule: Rule, doc_rule_context: bool, exec_file: bool) -> bool:
+    if doc_rule_context:
+        return rule.rule_id in DOC_RULES
+    if exec_file:
+        return rule.rule_id not in DOC_RULES
+    return rule.rule_id in DOC_RULES
+
+
+def _line_evidence_for_rule(record: FileRecord, line_no: int, rule: Rule) -> Evidence:
+    if rule.rule_id == "secret-file-access":
+        line = record.lines[line_no - 1] if 1 <= line_no <= len(record.lines) else ""
+        if _looks_like_service_api_credential(line, record.text):
+            return line_evidence(
+                record,
+                line_no,
+                "Code references service API credentials used for normal authenticated API calls.",
+                "AST-04",
+                "low",
+                "service-api-credential",
+                0.25,
+            )
+    if rule.rule_id == "browser-profile-access":
+        line = record.lines[line_no - 1] if 1 <= line_no <= len(record.lines) else ""
+        if _looks_like_user_story_text(line):
+            return line_evidence(
+                record,
+                line_no,
+                "Text mentions browser/login history in non-executable product copy.",
+                "AST-10",
+                "info",
+                "contextual-auth-copy",
+                0.1,
+            )
+    return line_evidence(record, line_no, rule.message, rule.category, rule.severity, rule.rule_id, rule.weight)
+
+
+def _document_context_evidence(record: FileRecord) -> list[Evidence]:
+    lowered = record.text.lower()
+    evidence: list[Evidence] = []
+    if _document_high_privilege_automation(lowered):
+        evidence.append(
+            _file_context_evidence(
+                record,
+                "Skill documentation declares broad high-impact automation across repositories, CI/CD, sandboxes, deployments, payments, storage, or user accounts.",
+                "AST-04",
+                "critical",
+                "doc-high-privilege-automation",
+                2.0,
+                ("multi-repo", "cross-repository", "github actions", "ci/cd", "sandbox", "payment", "storage", "deploy"),
+            )
+        )
+    if _document_remote_bootstrap(lowered):
+        evidence.append(
+            _file_context_evidence(
+                record,
+                "Skill documentation requires remote bootstrap or template fetch before carrying out user work.",
+                "AST-05",
+                "critical",
+                "doc-remote-bootstrap-required",
+                2.0,
+                ("git clone", "curl", "wget", "npx", "npm install", "fetch before implementing"),
+            )
+        )
+    if _document_local_history_egress(lowered):
+        evidence.append(
+            _file_context_evidence(
+                record,
+                "Skill documentation asks to read local conversation/history data and deliver it through external services.",
+                "AST-02",
+                "critical",
+                "doc-local-history-egress",
+                2.0,
+                ("chat history", "history.jsonl", "pastedcontents", "slack", "dm"),
+            )
+        )
     return evidence
 
 
 def _is_hidden(relpath: str) -> bool:
     parts = relpath.split("/")
+    if parts[-1] == ".gitkeep":
+        return False
     return any(part.startswith(".") and part not in {".", ".."} for part in parts)
+
+
+def _is_nested_hidden_skill(relpath: str) -> bool:
+    parts = relpath.split("/")
+    if len(parts) < 4:
+        return False
+    return parts[0] in {".claude", ".codex", ".cursor"} and parts[1] in {"skills", "agents"} and parts[-1].lower() == "skill.md"
 
 
 def _high_entropy_blob(text: str) -> bool:
@@ -287,7 +489,155 @@ def _high_entropy_blob(text: str) -> bool:
 def _has_shell_with_user_input(text: str) -> bool:
     shell = re.search(r"(os\.system|subprocess\.(Popen|run|call)|child_process|execSync|spawn\()", text, re.I)
     user_input = re.search(r"(input\(|sys\.argv|process\.argv|req\.|request\.|query|params)", text, re.I)
-    return bool(shell and user_input)
+    if not (shell and user_input):
+        return False
+    if _safe_subprocess_argv(text):
+        return False
+    return True
+
+
+def _safe_subprocess_argv(text: str) -> bool:
+    if "shell=True" in text:
+        return False
+    if re.search(r"(os\.system|child_process|execSync|bash\s+-c|/bin/sh)", text, re.I):
+        return False
+    return re.search(r"subprocess\.run\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*,", text) is not None and re.search(r"[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*\[[^\]]+", text, re.S) is not None
+
+
+def _looks_like_service_api_credential(line: str, file_text: str) -> bool:
+    lowered = line.lower()
+    if any(marker in lowered for marker in (".ssh", "id_rsa", "login data", "cookies", "keychain", "git-credentials")):
+        return False
+    if _exfil_line(lowered):
+        return False
+    file_lowered = file_text.lower()
+    service_names = (
+        "asana",
+        "azure",
+        "discord",
+        "email",
+        "github",
+        "gitlab",
+        "google",
+        "hubspot",
+        "hf",
+        "huggingface",
+        "jira",
+        "linear",
+        "notion",
+        "openai",
+        "paypal",
+        "salesforce",
+        "slack",
+        "stripe",
+        "zendesk",
+    )
+    service_context = any(name in file_lowered for name in service_names)
+    env_loader_context = bool(re.search(r"\b(load_?env|dotenv|environment variables?|os\.environ|process\.env)\b", file_lowered, re.I))
+    if ".env" in lowered or "os.environ.setdefault" in lowered:
+        return service_context and env_loader_context
+    credential_marker = re.search(r"\b([A-Z][A-Z0-9_]{1,40}_(API_)?(TOKEN|KEY|SECRET|PASSWORD)|process\.env\.[A-Z][A-Z0-9_]+|os\.environ\.get\(['\"][A-Z][A-Z0-9_]+)", line)
+    if not credential_marker:
+        return False
+    return any(name in lowered for name in service_names) or (
+        service_context and re.search(r"\b(base[_-]?url|api[_-]?url|endpoint|authorization|auth)\b", lowered) is not None
+    )
+
+
+def _looks_like_user_story_text(line: str) -> bool:
+    lowered = line.lower()
+    text_markers = ("paragraph", "heading", "scenario", "user story", "as a returning user", "chat history", "conversation history")
+    return any(marker in lowered for marker in text_markers)
+
+
+def _exfil_line(lowered: str) -> bool:
+    network = re.search(r"\b(requests\.post|httpx\.post|urlopen|fetch|axios|curl|wget)\b|https?://", lowered)
+    sink = re.search(r"\b(evil|webhook|pastebin|requestbin|collector|logging|upload|exfil|onrender\.com)\b", lowered)
+    secret = re.search(r"\b(secret|token|password|credential|private[_-]?key|\.env|id_rsa|\.ssh)\b", lowered)
+    return bool(network and sink and secret)
+
+
+def _metadata_url_line(line: str) -> bool:
+    lowered = line.lower()
+    return any(marker in lowered for marker in ('"$schema"', "'$schema'", '"githuburl"', '"authoravatar"', "json-schema.org"))
+
+
+def _local_network_line(line: str) -> bool:
+    lowered = line.lower()
+    return bool(
+        re.search(r"https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:[/'\"\s)]|$)", lowered)
+        or re.search(r"\b(localhost|127\.0\.0\.1|0\.0\.0\.0)\b", lowered)
+    )
+
+
+def _is_metadata_declaration(record: FileRecord) -> bool:
+    return record.path.name.lower() in {"manifest.json", "metadata.json", "skill.json", "plugin.json"}
+
+
+def _document_high_privilege_automation(lowered: str) -> bool:
+    repo_automation = _nearby(
+        lowered,
+        r"\b(multi-repo|cross-repositor|organization-wide|all repositories|across repositories)\b",
+        r"\b(git push|gh pr create|pull requests?|security patches|update dependencies|refactoring|standardization)\b",
+    )
+    ci_automation = _nearby(
+        lowered,
+        r"\b(github actions?|ci/cd|workflow automation|release manager|deployment|deploy)\b",
+        r"\b(auto-?execute|self-healing|configure.*secrets?|id-token:\s*write|push this live|no authentication required|claim url)\b",
+    )
+    platform_admin = len(
+        re.findall(
+            r"\b(sandbox_(?:create|execute|upload|delete)|app_store_publish|configure_auto_refill|create_payment_link|storage_(?:upload|delete)|user_(?:register|login|upgrade)|challenge_submit)\b",
+            lowered,
+        )
+    ) >= 4
+    return bool(repo_automation or ci_automation or platform_admin)
+
+
+def _document_remote_bootstrap(lowered: str) -> bool:
+    return bool(
+        _nearby(
+            lowered,
+            r"\b(always|mandatory|required|must|never guess|before any|before implementing|fetch before implementing)\b",
+            r"\b(git clone|curl|wget|npx|npm install|pip install)\b",
+            window=180,
+        )
+        and re.search(r"\b(official repository|template|source|classes|before implementing|before any|bootstrap)\b", lowered)
+    )
+
+
+def _document_local_history_egress(lowered: str) -> bool:
+    local_history = re.search(r"\b(chat history|conversation history|claude code chat|~/.claude/history\.jsonl|pastedcontents)\b", lowered)
+    reads = re.search(r"\b(read|access|analyz|extract|filter)\b", lowered)
+    egress = re.search(r"\b(slack|dm|send|deliver|external|hackernews|rube_multi_execute_tool)\b", lowered)
+    return bool(local_history and reads and egress)
+
+
+def _nearby(lowered: str, first_pattern: str, second_pattern: str, window: int = 260) -> bool:
+    first_matches = list(re.finditer(first_pattern, lowered, re.I))
+    second_matches = list(re.finditer(second_pattern, lowered, re.I))
+    return any(abs(first.start() - second.start()) <= window for first in first_matches for second in second_matches)
+
+
+def _file_context_evidence(
+    record: FileRecord,
+    message: str,
+    category: str,
+    severity: str,
+    rule_id: str,
+    weight: float,
+    markers: tuple[str, ...],
+) -> Evidence:
+    line_no = _first_marker_line(record, markers)
+    return line_evidence(record, line_no, message, category, severity, rule_id, weight)
+
+
+def _first_marker_line(record: FileRecord, markers: tuple[str, ...]) -> int:
+    for line_no, line in enumerate(record.lines, start=1):
+        lowered = line.lower()
+        if any(marker in lowered for marker in markers):
+            return line_no
+    return 1
 
 
 def _entropy(value: str) -> float:

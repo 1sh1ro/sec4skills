@@ -24,7 +24,7 @@ def run_canary_sandbox(ctx: ScanContext, mode: str) -> list[Evidence]:
 
 def _simulate_canary_hits(ctx: ScanContext) -> list[Evidence]:
     evidence: list[Evidence] = []
-    secret_markers = {"secrets", "filesystem"} <= ctx.actual_capabilities
+    secret_markers = {"secrets", "filesystem"} <= ctx.actual_capabilities and _has_high_risk_secret_access(ctx)
     exfil_markers = "network" in ctx.actual_capabilities
     shell_markers = "shell" in ctx.actual_capabilities
 
@@ -55,6 +55,29 @@ def _simulate_canary_hits(ctx: ScanContext) -> list[Evidence]:
             )
         )
     return evidence
+
+
+def _has_high_risk_secret_access(ctx: ScanContext) -> bool:
+    high_risk_rules = {
+        "credential-store-access",
+        "data-exfiltration",
+        "prompt-injection-forced-exfiltration",
+        "secret-file-access",
+    }
+    for item in ctx.evidence:
+        if item.rule_id not in high_risk_rules:
+            continue
+        if item.rule_id == "secret-file-access" and _service_credential_only(item.snippet):
+            continue
+        return True
+    return False
+
+
+def _service_credential_only(snippet: str) -> bool:
+    lowered = snippet.lower()
+    if any(marker in lowered for marker in (".ssh", "id_rsa", ".aws", "login data", "cookies", "keychain", "git-credentials")):
+        return False
+    return any(name in lowered for name in ("jira", "stripe", "slack", "github", "paypal", "discord", "notion", "linear"))
 
 
 def _run_entrypoints(ctx: ScanContext) -> list[Evidence]:

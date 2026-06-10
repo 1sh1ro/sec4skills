@@ -21,9 +21,9 @@ CAPABILITY_PATTERNS: dict[str, list[re.Pattern[str]]] = {
         re.compile(r"\b(bash|sh|powershell|cmd\.exe|python -c|node -e)\b", re.I),
     ],
     "secrets": [
-        re.compile(r"\b(api[_-]?key|token|secret|password|credential|private[_-]?key)\b", re.I),
         re.compile(r"\.env\b|id_rsa|\.ssh|\.aws|\.npmrc|\.pypirc|\.netrc|git-credentials", re.I),
-        re.compile(r"(Cookies|Login Data|keychain|keyring|process\.env|os\.environ)", re.I),
+        re.compile(r"(Cookies|Login Data|keychain|keyring)", re.I),
+        re.compile(r"(OPENAI_API_KEY|ANTHROPIC_API_KEY|AWS_SECRET_ACCESS_KEY|PRIVATE_KEY|GITHUB_TOKEN|HF_TOKEN)", re.I),
     ],
     "delete": [
         re.compile(r"\b(rm\s+-rf|unlink|rmtree|remove\(|del\s+/[fsq]|shutil\.rmtree)\b", re.I),
@@ -32,7 +32,7 @@ CAPABILITY_PATTERNS: dict[str, list[re.Pattern[str]]] = {
         re.compile(r"\b(crontab|LaunchAgents|systemd|authorized_keys|postinstall|preinstall|prepare)\b", re.I),
     ],
     "obfuscation": [
-        re.compile(r"\b(base64|atob|btoa|fromCharCode|rot13|xxd|openssl enc)\b", re.I),
+        re.compile(r"\b(base64\s+-d|base64\.b64decode|atob|fromCharCode|rot13|xxd\s+-r|openssl enc)\b", re.I),
         re.compile(r"\\x[0-9a-f]{2}", re.I),
     ],
 }
@@ -82,6 +82,59 @@ DECLARATION_FILES = {
     "skill.md",
 }
 
+DOCUMENTATION_FILENAMES = {
+    "agent.md",
+    "agents.md",
+    "codex.md",
+    "contributing.md",
+    "readme.md",
+    "security.md",
+    "skill.md",
+}
+
+EXECUTABLE_SUFFIXES = {
+    ".bash",
+    ".bat",
+    ".cjs",
+    ".go",
+    ".java",
+    ".js",
+    ".jsx",
+    ".kt",
+    ".lua",
+    ".mjs",
+    ".php",
+    ".pl",
+    ".ps1",
+    ".py",
+    ".rb",
+    ".rs",
+    ".sh",
+    ".swift",
+    ".ts",
+    ".tsx",
+    ".zsh",
+}
+
+CONFIG_SUFFIXES = {
+    ".json",
+    ".toml",
+    ".yaml",
+    ".yml",
+}
+
+EXECUTABLE_FILENAMES = {
+    "dockerfile",
+    "makefile",
+    "package.json",
+    "pnpm-workspace.yaml",
+    "pyproject.toml",
+    "requirements.txt",
+    "setup.cfg",
+    "setup.py",
+    "skill.json",
+}
+
 
 NEGATIVE_DECLARATION_PATTERNS: dict[str, list[re.Pattern[str]]] = {
     "network": [
@@ -125,12 +178,34 @@ def infer_negative_declarations(text: str) -> set[str]:
 def infer_actual_capabilities(files: Iterable[FileRecord]) -> set[str]:
     capabilities: set[str] = set()
     for record in files:
-        if record.is_binary:
+        if record.is_binary or not is_execution_relevant_file(record):
             continue
+        capability_text = "\n".join(
+            line
+            for line in record.lines
+            if not _metadata_url_line(line)
+        )
         for capability, patterns in CAPABILITY_PATTERNS.items():
-            if any(pattern.search(record.text) for pattern in patterns):
+            if any(pattern.search(capability_text) for pattern in patterns):
                 capabilities.add(capability)
     return capabilities
+
+
+def is_documentation_file(record: FileRecord) -> bool:
+    name = record.path.name.lower()
+    suffix = record.path.suffix.lower()
+    return name in DOCUMENTATION_FILENAMES or suffix in {".md", ".mdx", ".rst", ".txt"}
+
+
+def is_execution_relevant_file(record: FileRecord) -> bool:
+    name = record.path.name.lower()
+    suffix = record.path.suffix.lower()
+    return name in EXECUTABLE_FILENAMES or suffix in EXECUTABLE_SUFFIXES or suffix in CONFIG_SUFFIXES
+
+
+def _metadata_url_line(line: str) -> bool:
+    lowered = line.lower()
+    return any(marker in lowered for marker in ('"$schema"', "'$schema'", '"githuburl"', '"authoravatar"', "json-schema.org"))
 
 
 def line_evidence(

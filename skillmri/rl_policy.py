@@ -50,7 +50,7 @@ def apply_policy(result: dict[str, Any], policy: dict[str, Any] | None) -> dict[
     evidence = [evidence_from_dict(item) for item in result.get("evidence", [])]
     features = extract_features(evidence, int(result.get("risk_score", 0)))
     prediction = predict(features, policy)
-    blended = blend_decision(result["label"], result["confidence"], prediction)
+    blended = blend_decision(result["label"], result["confidence"], prediction, evidence, int(result.get("risk_score", 0)))
 
     result["label"] = blended["label"]
     result["malicious"] = result["label"] == "malicious"
@@ -278,12 +278,24 @@ def predict_label(features: dict[str, float], weights: dict[str, dict[str, float
     return max(scores, key=scores.get)
 
 
-def blend_decision(static_label: str, static_confidence: float, prediction: PolicyPrediction) -> dict[str, Any]:
+def blend_decision(
+    static_label: str,
+    static_confidence: float,
+    prediction: PolicyPrediction,
+    evidence: list[Evidence] | None = None,
+    score: int = 0,
+) -> dict[str, Any]:
     if static_label == prediction.label:
         return {
             "label": static_label,
             "confidence": round(min(0.99, max(static_confidence, prediction.confidence)), 4),
             "source": "static+rl-agree",
+        }
+    if static_label == "malicious" and _has_decisive_static_evidence(evidence or [], score):
+        return {
+            "label": "malicious",
+            "confidence": round(min(0.99, max(static_confidence, 0.9)), 4),
+            "source": "static-decisive",
         }
     if static_label == "malicious" and prediction.label == "benign":
         return {"label": "suspicious", "confidence": 0.72, "source": "rl-downgraded-static-malicious"}
@@ -325,6 +337,26 @@ def _primary_category(evidence: list[Evidence]) -> str:
     if not counts:
         return "BENIGN"
     return counts.most_common(1)[0][0]
+
+
+def _has_decisive_static_evidence(evidence: list[Evidence], score: int) -> bool:
+    decisive_rules = {
+        "canary-simulated-secret-egress",
+        "command-injection",
+        "credential-store-access",
+        "data-exfiltration",
+        "destructive-filesystem",
+        "prompt-injection-coercive-workflow",
+        "prompt-injection-forced-exfiltration",
+        "prompt-injection-override",
+        "prompt-injection-secret-leak",
+        "remote-code-pipe",
+        "sandbox-canary-leak-output",
+    }
+    if any(item.rule_id in decisive_rules for item in evidence):
+        return True
+    critical_count = sum(1 for item in evidence if item.severity == "critical")
+    return score >= 70 and critical_count >= 2
 
 
 def _mistake_penalty(expected: str, predicted: str) -> float:
