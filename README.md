@@ -5,15 +5,16 @@ SkillMRI is an offline blue-team scanner for Agent Skill submissions. It is desi
 The scanner combines four layers:
 
 1. Static rules for prompt injection, secret access, shell execution, network egress, persistence, destructive filesystem operations, supply-chain risk, and obfuscation.
-2. Behavioral Integrity Verification: compares declared capabilities in `SKILL.md`, manifests, and README files against behavior found in code and prompts.
-3. Bounded archive inspection for zip/tar/tgz resources, so hidden payload files inside bundled assets are still scanned.
-4. Package-level dataflow evidence for sensitive sources flowing toward network, shell, dynamic loader, or serialized artifact sinks.
-5. Canary sandbox probes: by default, a safe simulation that predicts secret-egress paths; optionally, a short local execution probe for known entrypoints.
-6. Evidence graph output: each hit includes `file:line`, severity, rule id, snippet, and OWASP AST-style category.
-7. Lightweight semantic ML: a pure-Python n-gram linear classifier packaged as a small JSON model adds weak semantic evidence without Torch/sklearn/transformers.
-8. Optional online LLM classifier: an OpenAI-compatible judge can be enabled for local experiments, but it is off by default for contest Docker runs.
-9. RL-tuned evidence scoring: a compact offline policy can rank evidence combinations for F2-oriented recall while preserving the static evidence graph.
-10. Contest high-recall output: the public scanner keeps conservative internal labels, while the Track B JSONL output reports concrete non-`AST10` evidence as at least `suspicious` unless it matches a low-risk benign control pattern.
+2. SkillSieve-style offline triage for intent alignment, permission justification, covert behavior, and cross-file consistency.
+3. Behavioral Integrity Verification: compares declared capabilities in `SKILL.md`, manifests, and README files against behavior found in code and prompts.
+4. Bounded archive inspection for zip/tar/tgz resources, so hidden payload files inside bundled assets are still scanned.
+5. Package-level dataflow evidence for sensitive sources flowing toward network, shell, dynamic loader, or serialized artifact sinks.
+6. Canary sandbox probes: by default, a safe simulation that predicts secret-egress paths; optionally, a short local execution probe for known entrypoints.
+7. Evidence graph output: each hit includes `file:line`, severity, rule id, snippet, and OWASP AST-style category.
+8. Lightweight semantic ML: a pure-Python n-gram linear classifier packaged as a small JSON model adds weak semantic evidence without Torch/sklearn/transformers.
+9. Optional online LLM classifier: an OpenAI-compatible judge can be enabled for local experiments, but it is off by default for contest Docker runs.
+10. RL-tuned evidence scoring: a compact offline policy can rank evidence combinations for F2-oriented recall while preserving the static evidence graph.
+11. Contest high-recall output: the public scanner keeps conservative internal labels, while the Track B JSONL output reports concrete non-`AST10` evidence as at least `suspicious` unless it matches a low-risk benign control pattern.
 
 ## Quick Start
 
@@ -84,7 +85,7 @@ Published contest image:
 
 ```text
 ghcr.io/1sh1ro/sec4skills:contest
-sha256:e2a8ce6b01f83d4032b5742cd103ed7c3637869be89ed7f5b4a29a76a68b9492
+sha256:4b19292bb341f423ea574312da6e72bde23a810274fce008b298fbb0b5e78425
 ```
 
 The repository `dist/sec4skills-track-b-submission.tar.gz` archive follows the
@@ -120,7 +121,7 @@ Do not tune against the full-corpus score alone. `train-rl` now uses a determini
 
 Current full-corpus regression score with the packaged contest defaults:
 
-- Accuracy: 0.8649
+- Accuracy: 0.8514
 - Malicious precision: 0.8611
 - Malicious recall: 1.0
 - Malicious F2: 0.9687
@@ -131,8 +132,8 @@ Current full-corpus regression score with the packaged contest defaults:
 Current contest JSONL distribution on the same corpus after the high-recall
 output strategy:
 
-- `benign`: 15
-- `suspicious`: 23
+- `benign`: 13
+- `suspicious`: 25
 - `malicious`: 36
 
 The v0.1.5 contest build also runs a separate 14-sample stress set that is not

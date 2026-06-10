@@ -18,25 +18,26 @@ Docker image runs the contest interface:
 2. Apply static rules for prompt injection, secret access, unsafe shell
    execution, network egress, persistence hooks, destructive filesystem
    operations, supply-chain downloads, model artifact loading, and obfuscation.
-3. Compare declared capabilities from `SKILL.md`, manifests, and README files
+3. Run SkillSieve-style offline triage for intent alignment, permission justification, covert behavior, cross-file consistency, and kill-chain evidence.
+4. Compare declared capabilities from `SKILL.md`, manifests, and README files
    with actual code and prompt behavior.
-4. Add package-level dataflow evidence for sensitive sources flowing toward
+5. Add package-level dataflow evidence for sensitive sources flowing toward
    network, shell, dynamic loader, or serialized artifact sinks.
-5. Run a safe canary simulation to identify secret-egress patterns without
+6. Run a safe canary simulation to identify secret-egress patterns without
    executing untrusted samples by default.
-6. Apply a lightweight semantic classifier trained on skill text/code n-grams.
+7. Apply a lightweight semantic classifier trained on skill text/code n-grams.
    It is a pure-Python linear model stored as JSON, so it adds no runtime
    dependency and only contributes weak evidence when confidence and margin are
    sufficient.
-7. Optionally call an OpenAI-compatible online classifier when explicitly
+8. Optionally call an OpenAI-compatible online classifier when explicitly
    enabled through environment variables. This is intended for local
    experiments and score exploration, not as the default contest path.
-8. Apply a compact local evidence-scoring policy trained for high malicious
+9. Apply a compact local evidence-scoring policy trained for high malicious
    recall while preserving deterministic evidence output.
-9. Emit a single Track B row per skill with `verdict`, confidence, primary
+10. Emit a single Track B row per skill with `verdict`, confidence, primary
    OWASP AST category, concise file/line evidence, and compatibility aliases
    `engine_category` and `evidence_text`.
-10. Apply a contest-only high-recall output policy: concrete non-`AST10`
+11. Apply a contest-only high-recall output policy: concrete non-`AST10`
     evidence is submitted as at least `suspicious` unless it is a known
     low-risk benign control. This keeps the internal scanner interpretable
     while aligning the submitted JSONL with the recall-weighted F2 objective.
@@ -106,7 +107,7 @@ ghcr.io/1sh1ro/sec4skills:contest
 Bound digest:
 
 ```text
-sha256:e2a8ce6b01f83d4032b5742cd103ed7c3637869be89ed7f5b4a29a76a68b9492
+sha256:4b19292bb341f423ea574312da6e72bde23a810274fce008b298fbb0b5e78425
 ```
 
 The submission archive is intentionally a small source and metadata package,

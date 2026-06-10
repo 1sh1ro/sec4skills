@@ -36,6 +36,9 @@ detection quality and evaluator compatibility with generalized changes:
   unbounded extraction
 - package-level dataflow links sensitive sources to network, shell, dynamic
   loader, or serialized artifact sinks
+- SkillSieve-style offline triage adds explicit intent alignment, permission
+  justification, covert behavior, cross-file consistency, and kill-chain
+  evidence without online LLM calls
 - contest JSONL output is more recall-oriented than the internal scanner:
   concrete non-`AST10` evidence is reported as at least `suspicious` unless it
   matches a low-risk benign control
@@ -105,8 +108,8 @@ The same 74-sample curated corpus was scanned in two execution forms:
 
 Both forms produced identical `results.jsonl` rows. Verdict distribution:
 
-- `benign`: 15
-- `suspicious`: 23
+- `benign`: 13
+- `suspicious`: 25
 - `malicious`: 36
 
 Timing, with one warmup run and five measured runs:
@@ -125,9 +128,9 @@ on the same static path as the source run.
 The curated development corpus contains 74 samples: 23 benign, 20 suspicious,
 and 31 malicious.
 
-Full-corpus regression check:
+Full-corpus regression check after adding offline triage/kill-chain evidence:
 
-- Accuracy: `0.8649`
+- Accuracy: `0.8514`
 - Malicious precision: `0.8611`
 - Malicious recall: `1.0`
 - Malicious F2: `0.9687`
