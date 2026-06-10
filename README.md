@@ -9,7 +9,8 @@ The scanner combines four layers:
 3. Canary sandbox probes: by default, a safe simulation that predicts secret-egress paths; optionally, a short local execution probe for known entrypoints.
 4. Evidence graph output: each hit includes `file:line`, severity, rule id, snippet, and OWASP AST-style category.
 5. Lightweight semantic ML: a pure-Python n-gram linear classifier packaged as a small JSON model adds weak semantic evidence without Torch/sklearn/transformers.
-6. RL-tuned evidence scoring: a compact offline policy can rank evidence combinations for F2-oriented recall while preserving the static evidence graph.
+6. Optional online LLM classifier: an OpenAI-compatible judge can be enabled for local experiments, but it is off by default for contest Docker runs.
+7. RL-tuned evidence scoring: a compact offline policy can rank evidence combinations for F2-oriented recall while preserving the static evidence graph.
 
 ## Quick Start
 
@@ -56,7 +57,8 @@ docker run --rm \
 cat /tmp/skillmri-contest/output/results.jsonl
 ```
 
-The image is fully offline at runtime and does not use an LLM or network access. To export it without pushing:
+The image is fully offline by default at runtime and does not require an LLM or
+network access. To export it without pushing:
 
 ```bash
 docker save skillmri:latest | gzip > skillmri-latest.tar.gz
@@ -132,6 +134,27 @@ That stress set scores malicious recall 1.0, malicious F2 1.0, strict benign
 malicious false-positive rate 0.0, and benign non-benign rate 0.0.
 
 Use `--no-rl-policy` when precision on known-benign internal tooling matters more than recall. For contest tuning, keep a separate private validation set of real black/white/gray submissions and only promote policy changes that improve held-out F2 without introducing avoidable benign false positives.
+
+## Optional Online Classifier
+
+For local experiments, SkillMRI can call an OpenAI-compatible chat completion
+endpoint as an auxiliary semantic classifier. It is disabled by default because
+the Track B evaluator states that network access is isolated during scoring.
+Never commit API keys into the repository or Docker image; pass them only as
+environment variables:
+
+```bash
+export SKILLMRI_ONLINE_CLASSIFIER=1
+export SKILLMRI_ONLINE_API_KEY='...'
+export SKILLMRI_ONLINE_BASE_URL='https://api.4022543.xyz/v1'
+export SKILLMRI_ONLINE_MODEL='gpt-5.5'
+python -m skillmri examples/malicious_skill --output json
+```
+
+The online response is parsed as strict JSON and contributes `online-llm-*`
+evidence only when confidence is high enough. Strong static malicious evidence
+is never downgraded by the online classifier, and missing keys/network errors
+are reported in `stats.online_classifier` without failing the scan.
 
 ## External Benchmarks
 

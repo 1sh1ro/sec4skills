@@ -25,9 +25,12 @@ Docker image runs the contest interface:
    It is a pure-Python linear model stored as JSON, so it adds no runtime
    dependency and only contributes weak evidence when confidence and margin are
    sufficient.
-6. Apply a compact local evidence-scoring policy trained for high malicious
+6. Optionally call an OpenAI-compatible online classifier when explicitly
+   enabled through environment variables. This is intended for local
+   experiments and score exploration, not as the default contest path.
+7. Apply a compact local evidence-scoring policy trained for high malicious
    recall while preserving deterministic evidence output.
-7. Emit a single Track B row per skill with `verdict`, confidence, primary
+8. Emit a single Track B row per skill with `verdict`, confidence, primary
    OWASP AST category, concise file/line evidence, and compatibility aliases
    `engine_category` and `evidence_text`.
 
@@ -44,6 +47,21 @@ and code: token n-grams, file suffixes, path tokens, and documentation/code
 prefixes. It predicts both `benign/suspicious/malicious` and the primary AST
 category. The scanner treats this as an auxiliary semantic signal, not as an
 override for decisive static evidence.
+
+## Optional Online Classifier
+
+The implementation includes an optional OpenAI-compatible classifier for local
+benchmarking. It reads configuration from environment variables:
+`SKILLMRI_ONLINE_CLASSIFIER=1`, `SKILLMRI_ONLINE_API_KEY`,
+`SKILLMRI_ONLINE_BASE_URL`, and `SKILLMRI_ONLINE_MODEL`. The API key is never
+stored in source, docs, Docker layers, or the submission metadata.
+
+This path is disabled by default because the official evaluator says the
+runtime network is isolated. When enabled outside the contest, the scanner sends
+a redacted, bounded prompt containing file inventory, snippets, and existing
+static evidence. The model must return strict JSON with verdict, confidence,
+AST category, and rationale. High-confidence malicious/suspicious predictions
+become auxiliary `online-llm-*` evidence; failures and timeouts are non-fatal.
 
 ## Category Mapping
 

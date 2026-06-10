@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,10 @@ def main(argv: list[str] | None = None) -> int:
         policy_path=args.rl_model,
         use_semantic_model=not args.no_semantic_model,
         semantic_model_path=args.semantic_model,
+        use_online_classifier=args.online_classifier or _env_enabled("SKILLMRI_ONLINE_CLASSIFIER"),
+        online_base_url=args.online_base_url,
+        online_model=args.online_model,
+        online_timeout_seconds=args.online_timeout_seconds,
     )
     result = scan(Path(args.target), options)
     emit_result(result, args.output)
@@ -70,6 +75,10 @@ def build_scan_parser(prog: str = "skillmri") -> argparse.ArgumentParser:
     parser.add_argument("--no-rl-policy", action="store_true", help="Disable the default packaged RL evidence scorer")
     parser.add_argument("--semantic-model", type=Path, default=None, help="Optional lightweight semantic classifier JSON")
     parser.add_argument("--no-semantic-model", action="store_true", help="Disable the packaged semantic classifier")
+    parser.add_argument("--online-classifier", action="store_true", help="Enable optional OpenAI-compatible online classifier via SKILLMRI_ONLINE_API_KEY")
+    parser.add_argument("--online-base-url", default=None, help="OpenAI-compatible base URL, defaults to SKILLMRI_ONLINE_BASE_URL")
+    parser.add_argument("--online-model", default=None, help="OpenAI-compatible model name, defaults to SKILLMRI_ONLINE_MODEL")
+    parser.add_argument("--online-timeout-seconds", type=float, default=4.0, help="Online classifier request timeout")
     return parser
 
 
@@ -86,6 +95,10 @@ def contest_command(argv: list[str]) -> int:
     parser.add_argument("--no-rl-policy", action="store_true", help="Disable the default packaged RL evidence scorer")
     parser.add_argument("--semantic-model", type=Path, default=None, help="Optional lightweight semantic classifier JSON")
     parser.add_argument("--no-semantic-model", action="store_true", help="Disable the packaged semantic classifier")
+    parser.add_argument("--online-classifier", action="store_true", help="Enable optional OpenAI-compatible online classifier via SKILLMRI_ONLINE_API_KEY")
+    parser.add_argument("--online-base-url", default=None, help="OpenAI-compatible base URL, defaults to SKILLMRI_ONLINE_BASE_URL")
+    parser.add_argument("--online-model", default=None, help="OpenAI-compatible model name, defaults to SKILLMRI_ONLINE_MODEL")
+    parser.add_argument("--online-timeout-seconds", type=float, default=4.0, help="Online classifier request timeout")
     args = parser.parse_args(argv)
 
     options = ScanOptions(
@@ -96,6 +109,10 @@ def contest_command(argv: list[str]) -> int:
         use_policy=not args.no_rl_policy,
         use_semantic_model=not args.no_semantic_model,
         semantic_model_path=args.semantic_model,
+        use_online_classifier=args.online_classifier or _env_enabled("SKILLMRI_ONLINE_CLASSIFIER"),
+        online_base_url=args.online_base_url,
+        online_model=args.online_model,
+        online_timeout_seconds=args.online_timeout_seconds,
     )
     input_dir = args.input_dir or _default_contest_input_dir()
     rows = run_contest_batch(input_dir, options)
@@ -298,6 +315,10 @@ def _write_contest_rows(output_file: Path, rows: list[dict[str, Any]]) -> None:
     with output_file.open("w", encoding="utf-8") as handle:
         for row in rows:
             handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def _env_enabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on", "enabled"}
 
 
 def _unique_paths(paths: list[Path | None]) -> list[Path]:

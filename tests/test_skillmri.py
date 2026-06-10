@@ -11,6 +11,7 @@ from skillmri.cli import (
     scan_path_manifest,
     summarize_path_rows,
 )
+from skillmri.online_llm import normalize_online_category, parse_classifier_payload
 from skillmri.rl_policy import cross_validate_policy, split_examples, train_policy
 from skillmri.scanner import scan
 from skillmri.schema import ScanOptions
@@ -56,6 +57,29 @@ def test_default_policy_metadata_is_reported() -> None:
     assert result["rl_policy"]["validation_examples"] is not None
     assert result["stats"]["semantic_model"]["enabled"] is True
     assert result["stats"]["semantic_model"]["label"] in {"benign", "suspicious", "malicious"}
+    assert result["stats"]["online_classifier"]["enabled"] is False
+
+
+def test_online_classifier_missing_key_is_non_fatal(tmp_path: Path) -> None:
+    skill = tmp_path / "sample"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("# sample\nSummarize local notes.", encoding="utf-8")
+
+    result = scan(skill, ScanOptions(sandbox="simulate", use_online_classifier=True, online_api_key=""))
+
+    assert result["stats"]["online_classifier"]["enabled"] is False
+    assert "missing SKILLMRI_ONLINE_API_KEY" in result["stats"]["online_classifier"]["reason"]
+
+
+def test_online_classifier_response_parsing() -> None:
+    payload = parse_classifier_payload(
+        '```json\n{"verdict":"malicious","confidence":0.91,"category":"AST01","rationale":"reads secrets then exfiltrates"}\n```'
+    )
+
+    assert payload["verdict"] == "malicious"
+    assert payload["confidence"] == 0.91
+    assert payload["category"] == "AST-01"
+    assert normalize_online_category("ast10") == "AST-10"
 
 
 def test_packaged_semantic_model_is_small_and_usable() -> None:

@@ -6,6 +6,7 @@ from typing import Any
 from .collector import collect_files
 from .contract import audit_contract
 from .features import declaration_text, infer_actual_capabilities, infer_declared_capabilities, infer_negative_declarations
+from .online_llm import online_llm_evidence
 from .rl_policy import apply_policy, load_policy
 from .sandbox import run_canary_sandbox
 from .schema import ScanContext, ScanOptions
@@ -41,6 +42,9 @@ def scan(target: Path, options: ScanOptions) -> dict[str, Any]:
         ctx.stats["semantic_model"] = semantic_stats
     else:
         ctx.stats["semantic_model"] = {"enabled": False, "reason": "disabled"}
+    online_hits, online_stats = online_llm_evidence(files, ctx.evidence, options)
+    ctx.evidence.extend(online_hits)
+    ctx.stats["online_classifier"] = online_stats
     ctx.stats["declared_capabilities"] = sorted(ctx.declared_capabilities)
     ctx.stats["negative_declarations"] = sorted(ctx.negative_declarations)
     ctx.stats["actual_capabilities"] = sorted(ctx.actual_capabilities)

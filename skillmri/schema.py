@@ -62,3 +62,9 @@ class ScanOptions:
     policy_path: Path | None = None
     use_semantic_model: bool = True
     semantic_model_path: Path | None = None
+    use_online_classifier: bool = False
+    online_api_key: str = ""
+    online_base_url: str | None = None
+    online_model: str | None = None
+    online_timeout_seconds: float = 4.0
+    online_max_prompt_chars: int = 20_000
