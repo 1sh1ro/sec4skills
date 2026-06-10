@@ -154,7 +154,7 @@ RULES: tuple[Rule, ...] = (
         (
             re.compile(r"(\.env|id_rsa|id_ed25519|\.ssh|\.aws/credentials|\.npmrc|\.pypirc|\.netrc|git-credentials|keychain|keyring)", re.I),
             re.compile(r"(OPENAI_API_KEY|ANTHROPIC_API_KEY|GITHUB_TOKEN|AWS_SECRET_ACCESS_KEY|PRIVATE_KEY|SLACK_TOKEN|HF_TOKEN)"),
-            re.compile(r"(process\.env|os\.environ|getenv|Cookies|Login Data)", re.I),
+            re.compile(r"(process\.env\.(?:[A-Z0-9_]*(?:TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL)[A-Z0-9_]*)|os\.environ(?:\.get)?\(['\"][A-Z0-9_]*(?:TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL)[A-Z0-9_]*|getenv\(['\"][A-Z0-9_]*(?:TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL)[A-Z0-9_]*|Cookies|Login Data)", re.I),
         ),
         1.8,
     ),
@@ -255,6 +255,46 @@ RULES: tuple[Rule, ...] = (
             re.compile(r"\b(__proto__|constructor\.prototype|prototype pollution)\b", re.I),
         ),
         1.7,
+    ),
+    Rule(
+        "update-drift-risk",
+        "AST-07",
+        "high",
+        "Skill can silently self-update, pin floating remote dependencies, or bypass review after installation.",
+        (
+            re.compile(r"\b(auto[-_ ]?update|self[-_ ]?update|update itself|pull latest|sync latest|floating version|unversioned)\b", re.I),
+            re.compile(r"\b(git pull|git checkout main|git fetch).{0,120}\b(automatically|on startup|before each run|latest)\b", re.I),
+            re.compile(r"\b(pip install|npm install|npx|curl|wget).{0,120}\b(latest|main|master|HEAD|nightly|canary)\b", re.I),
+            re.compile(r"\b(每次|启动时|运行前).{0,40}(更新|拉取最新|同步最新)\b"),
+        ),
+        1.1,
+    ),
+    Rule(
+        "scanner-evasion",
+        "AST-08",
+        "high",
+        "Skill contains scanner evasion, environment-detection, delayed activation, or anti-analysis behavior.",
+        (
+            re.compile(r"\b(bypass|disable|evade|avoid).{0,80}\b(scanner|scan|security check|detector|yara|antivirus|sandbox)\b", re.I),
+            re.compile(r"\b(if|when).{0,80}\b(ci|sandbox|docker|container|ctf|evaluation|judge|scanner)\b.{0,120}\b(skip|return|benign|do nothing|sleep)\b", re.I),
+            re.compile(r"\b(time\.sleep|setTimeout|sleep)\s*\(.{0,30}\b(60|120|300|600|random)\b", re.I),
+            re.compile(r"\b(base64|rot13|xor|split payload|steganograph|zero[- ]width).{0,120}\b(scanner|detection|review)\b", re.I),
+            re.compile(r"\b(检测|扫描|沙箱|评测|判题).{0,60}(绕过|规避|跳过|隐藏)\b"),
+        ),
+        1.1,
+    ),
+    Rule(
+        "governance-bypass",
+        "AST-09",
+        "high",
+        "Skill asks to bypass approvals, policy gates, audit trails, or human review.",
+        (
+            re.compile(r"\b(bypass|skip|disable|ignore).{0,100}\b(approval|human review|policy|audit|governance|permission prompt|security gate)\b", re.I),
+            re.compile(r"\b(no approval|without approval|without review|do not ask permission|do not log|avoid audit)\b", re.I),
+            re.compile(r"\b(force merge|push directly|merge without review|admin override|silent approval)\b", re.I),
+            re.compile(r"\b(绕过|跳过|关闭|不要).{0,40}(审批|审核|审计|权限|安全检查|人工确认)\b"),
+        ),
+        1.1,
     ),
     Rule(
         "command-injection",
@@ -483,9 +523,12 @@ DOC_RULES = {
     "prompt-injection-secret-leak",
     "reverse-shell",
     "remote-code-pipe",
+    "governance-bypass",
+    "scanner-evasion",
     "secret-file-access",
     "suspicious-package-lifecycle",
     "unsafe-deserialization",
+    "update-drift-risk",
     "workspace-sweep",
 }
 
@@ -501,6 +544,9 @@ DOC_ONLY_RULES = {
     "prompt-injection-forced-exfiltration",
     "prompt-injection-override",
     "prompt-injection-secret-leak",
+    "governance-bypass",
+    "scanner-evasion",
+    "update-drift-risk",
 }
 
 
@@ -651,6 +697,20 @@ def _package_graph_evidence(files: list[FileRecord], evidence: list[Evidence]) -
                 weight=1.2,
             )
         )
+    if _has_scanner_evasion_flow(package_lowered):
+        source = _first_rule_evidence(evidence, "scanner-evasion")
+        graph.append(
+            Evidence(
+                file=source.file if source else ".",
+                line=source.line if source else 1,
+                message="Package-level control flow appears to alter behavior in scanner, sandbox, judge, or container environments.",
+                snippet=source.snippet if source else "",
+                category="AST-08",
+                severity="high",
+                rule_id="graph-scanner-evasion-flow",
+                weight=1.1,
+            )
+        )
     if {"obfuscated-payload", "unsafe-network"} <= rule_ids:
         source = _first_rule_evidence(evidence, "obfuscated-payload") or _first_rule_evidence(evidence, "unsafe-network")
         graph.append(
@@ -748,6 +808,13 @@ def _has_dynamic_load_sink(text: str) -> bool:
 
 def _has_untrusted_content_source(text: str) -> bool:
     return bool(re.search(r"\b(requests\.|httpx\.|urllib\.request|fetch\(|axios\.|curl\s|wget\s|https?://|\.pkl\b|\.pickle\b|\.joblib\b|\.pt\b|\.pth\b|\.onnx\b|\.safetensors\b|base64\.b64decode|atob\()\b", text, re.I))
+
+
+def _has_scanner_evasion_flow(text: str) -> bool:
+    environment_probe = re.search(r"\b(scanner|sandbox|ctf|judge|evaluation|/.dockerenv|docker|container|ci)\b", text, re.I)
+    behavior_change = re.search(r"\b(benign|skip|return|do nothing|sleep|time\.sleep|settimeout|delay|defer)\b", text, re.I)
+    conditional = re.search(r"\b(if|when|unless|case)\b", text, re.I)
+    return bool(environment_probe and behavior_change and conditional)
 
 
 def _is_hidden(relpath: str) -> bool:

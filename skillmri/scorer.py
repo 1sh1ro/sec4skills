@@ -249,9 +249,9 @@ def _category_priority(category: str, evidence: list[Evidence]) -> float:
         }:
             return 20.0
         return 12.0
-    if category == "AST-02" and rule_ids & {"doc-remote-bootstrap-required", "remote-code-pipe", "suspicious-package-lifecycle"}:
+    if category == "AST-02" and rule_ids & {"doc-remote-bootstrap-required", "graph-remote-exec-chain", "graph-untrusted-content-loader", "model-artifact-risk", "remote-code-pipe", "suspicious-package-lifecycle"}:
         return 17.0
-    if category == "AST-03" and rule_ids & {"doc-high-privilege-automation", "excessive-permissions", "contract-undeclared-secrets"}:
+    if category == "AST-03" and rule_ids & {"doc-high-privilege-automation", "excessive-permissions", "contract-undeclared-secrets", "workspace-sweep"}:
         return 14.0
     if category == "AST-04" and rule_ids & {"browser-profile-access", "hidden-files", "high-entropy-blob", "insecure-metadata", "obfuscated-payload", "unsafe-deserialization"}:
         return 10.0
@@ -259,10 +259,14 @@ def _category_priority(category: str, evidence: list[Evidence]) -> float:
         return 12.0
     if category == "AST-06" and rule_ids & {"command-injection", "dangerous-shell-exec", "unsafe-network"}:
         return 7.0
+    if category == "AST-07" and "update-drift-risk" in rule_ids:
+        return 16.0
+    if category == "AST-08" and rule_ids & {"graph-scanner-evasion-flow", "scanner-evasion"}:
+        return 16.0
+    if category == "AST-09" and "governance-bypass" in rule_ids:
+        return 16.0
     if category == "AST-10":
         return -12.0
-    if category == "AST-07":
-        return -9.0
     return 0.0
 
 
@@ -277,6 +281,10 @@ def _has_decisive_malicious_evidence(evidence: list[Evidence]) -> bool:
         "doc-telemetry-exfiltration",
         "graph-obfuscated-network",
         "graph-remote-exec-chain",
+        "graph-scanner-evasion-flow",
+        "graph-sensitive-source-network-sink",
+        "graph-untrusted-content-loader",
+        "governance-bypass",
         "hidden-nested-skill-payload",
         "persistence-hook",
         "prompt-injection-coercive-workflow",
@@ -287,6 +295,8 @@ def _has_decisive_malicious_evidence(evidence: list[Evidence]) -> bool:
         "remote-code-pipe",
         "reverse-shell",
         "sandbox-canary-leak-output",
+        "scanner-evasion",
         "semantic-ml-malicious",
+        "update-drift-risk",
     }
     return any(item.rule_id in decisive_rules for item in evidence)

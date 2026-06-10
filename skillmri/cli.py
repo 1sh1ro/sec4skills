@@ -290,15 +290,43 @@ def _contest_verdict(result: dict[str, Any], category: str) -> str:
         return label
     if category == "AST10":
         return label
-    if not result.get("evidence"):
+    evidence_items = result.get("evidence") or []
+    if not evidence_items:
         return label
     try:
         score = int(result.get("risk_score", 0))
     except (TypeError, ValueError):
         score = 0
+    if _contest_low_risk_benign_evidence(evidence_items, score):
+        return label
+    # The official objective uses F2, so the contest interface is intentionally
+    # more recall-oriented than the internal scanner. Any concrete non-AST10
+    # evidence is reported as suspicious unless it matched a known low-risk
+    # control pattern.
+    if category != "AST10":
+        return "suspicious"
     if score >= 8:
         return "suspicious"
     return label
+
+
+def _contest_low_risk_benign_evidence(evidence_items: list[dict[str, Any]], score: int) -> bool:
+    rule_ids = {str(item.get("rule_id", "")) for item in evidence_items}
+    if not rule_ids:
+        return True
+    benign_rules = {
+        "contextual-auth-copy",
+        "example-secret-fixture",
+        "service-api-credential",
+        "unsafe-network",
+    }
+    if rule_ids <= benign_rules and score <= 4:
+        return True
+    if rule_ids <= {"obfuscated-payload", "contract-undeclared-obfuscation"} and score <= 6:
+        snippets = " ".join(str(item.get("snippet", "")).lower() for item in evidence_items)
+        if "base64" in snippets and not any(marker in snippets for marker in ("http", "webhook", "secret", "token", ".env", "id_rsa")):
+            return True
+    return False
 
 
 def contest_category(category: str) -> str:
