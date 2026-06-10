@@ -53,7 +53,7 @@ ghcr.io/1sh1ro/sec4skills:contest
 Bound digest:
 
 ```text
-sha256:04a23bc3699872875fd00389f7b44e6d5aeed0b1abaad86d4ee4f0bcfc8b02e8
+sha256:4e9a857537fff6604cc74229d0f7fcf5b60e3b98dc6bf8677baf44853a8594c8
 ```
 
 The submission archive is intentionally a small source and metadata package,
