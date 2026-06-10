@@ -109,6 +109,8 @@ def verdict(score: int, evidence: list[Evidence]) -> tuple[str, float]:
         return "suspicious", 0.58
     if any(item.rule_id in {"excessive-permissions"} for item in evidence) and score >= 14:
         return "suspicious", min(0.84, 0.48 + score / 170)
+    if any(item.rule_id in {"browser-profile-access", "obfuscated-payload", "unsafe-network"} for item in evidence) and score >= 10:
+        return "suspicious", min(0.82, 0.46 + score / 175)
     if score >= 18:
         return "suspicious", min(0.90, 0.45 + score / 150)
     return "benign", max(0.55, 0.95 - score / 100)
@@ -272,6 +274,9 @@ def _has_decisive_malicious_evidence(evidence: list[Evidence]) -> bool:
         "data-exfiltration",
         "destructive-filesystem",
         "doc-local-history-egress",
+        "doc-telemetry-exfiltration",
+        "graph-obfuscated-network",
+        "graph-remote-exec-chain",
         "hidden-nested-skill-payload",
         "persistence-hook",
         "prompt-injection-coercive-workflow",
@@ -280,6 +285,8 @@ def _has_decisive_malicious_evidence(evidence: list[Evidence]) -> bool:
         "prompt-injection-override",
         "prompt-injection-secret-leak",
         "remote-code-pipe",
+        "reverse-shell",
         "sandbox-canary-leak-output",
+        "semantic-ml-malicious",
     }
     return any(item.rule_id in decisive_rules for item in evidence)

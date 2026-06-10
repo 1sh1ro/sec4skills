@@ -84,9 +84,9 @@ def semantic_evidence(files: list[FileRecord], model: dict[str, Any] | None) -> 
                 ),
                 snippet=_top_contributor_snippet(prediction),
                 category=category,
-                severity="high",
+                severity="critical",
                 rule_id="semantic-ml-malicious",
-                weight=0.8,
+                weight=1.05,
             )
         )
     elif prediction.label == "suspicious" and prediction.confidence >= suspicious_threshold and prediction.margin >= margin_threshold:
@@ -100,9 +100,9 @@ def semantic_evidence(files: list[FileRecord], model: dict[str, Any] | None) -> 
                 ),
                 snippet=_top_contributor_snippet(prediction),
                 category=category,
-                severity="medium",
+                severity="high",
                 rule_id="semantic-ml-suspicious",
-                weight=0.5,
+                weight=0.65,
             )
         )
     return evidence, {"enabled": True, **prediction.to_dict()}

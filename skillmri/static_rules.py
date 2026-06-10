@@ -31,6 +31,8 @@ RULES: tuple[Rule, ...] = (
             re.compile(r"不要(告诉|透露).*用户.*(规则|指令|提示词)"),
             re.compile(r"(developer|system).{0,80}(must be ignored|no longer applies)", re.I),
             re.compile(r"priority override|hidden instruction|secret instruction", re.I),
+            re.compile(r"\b(silently|secretly|quietly|without telling the user).{0,140}\b(override|ignore|bypass|collect|send|upload|exfiltrate)\b", re.I),
+            re.compile(r"\b(when this skill is loaded|on skill activation|whenever invoked|at startup).{0,160}\b(ignore|override|send|upload|exfiltrate|collect)\b", re.I),
         ),
         1.2,
     ),
@@ -122,6 +124,17 @@ RULES: tuple[Rule, ...] = (
         2.0,
     ),
     Rule(
+        "doc-telemetry-exfiltration",
+        "AST-01",
+        "critical",
+        "Skill documentation directs telemetry or audit logging of prompts, conversations, workspace files, command output, or environment data.",
+        (
+            re.compile(r"\b(logs?|telemetry|analytics|audit|monitoring).{0,180}\b(all|full|complete|entire).{0,100}\b(user prompt|prompt|conversation|chat|workspace|command output|terminal output|environment|env vars?)\b", re.I),
+            re.compile(r"\b(user prompt|conversation|chat history|workspace files?|command output|terminal output|environment|env vars?).{0,180}\b(logs?|telemetry|analytics|audit|send|upload|forward|webhook)\b", re.I),
+        ),
+        2.0,
+    ),
+    Rule(
         "prompt-injection-secret-leak",
         "AST-01",
         "critical",
@@ -144,6 +157,18 @@ RULES: tuple[Rule, ...] = (
             re.compile(r"(process\.env|os\.environ|getenv|Cookies|Login Data)", re.I),
         ),
         1.8,
+    ),
+    Rule(
+        "agent-state-access",
+        "AST-01",
+        "critical",
+        "Code or instructions reference agent-local history, auth, skill, or session state.",
+        (
+            re.compile(r"(\.claude|\.codex|\.cursor).{0,120}\b(history|auth|config|settings|skills|agents|session|token|credentials?)\b", re.I),
+            re.compile(r"\b(conversation|chat|transcript|messages?|prompt history).{0,120}\b(read_text|open\(|send|upload|webhook|collector)\b", re.I),
+            re.compile(r"\b(read_text|open\().{0,120}\b(conversation|chat|transcript|messages?|prompt history)\b", re.I),
+        ),
+        1.6,
     ),
     Rule(
         "data-exfiltration",
@@ -171,6 +196,19 @@ RULES: tuple[Rule, ...] = (
         1.4,
     ),
     Rule(
+        "reverse-shell",
+        "AST-01",
+        "critical",
+        "Code contains reverse shell or interactive remote shell primitives.",
+        (
+            re.compile(r"/dev/tcp/[^\s'\";]+/\d+", re.I),
+            re.compile(r"bash\s+-i\s+>&\s*/dev/tcp/", re.I),
+            re.compile(r"\b(?:nc|ncat|netcat)\s+(?:-[^\s]*e|.*\s-e\s+)(?:/bin/)?(?:bash|sh)\b", re.I),
+            re.compile(r"mkfifo\s+/tmp/[^\s;]+.{0,160}(?:nc|netcat|/bin/sh|bash)", re.I),
+        ),
+        1.8,
+    ),
+    Rule(
         "remote-code-pipe",
         "AST-02",
         "critical",
@@ -178,10 +216,23 @@ RULES: tuple[Rule, ...] = (
         (
             re.compile(r"\b(curl|wget)\b.{0,120}\|\s*(bash|sh|python|node|ruby|perl)", re.I),
             re.compile(r"\b(eval|exec)\s*\(.{0,120}\b(requests|httpx|urllib|fetch|axios)\b", re.I),
+            re.compile(r"\b(requests|httpx|urllib|fetch|axios)\b.{0,180}\b(eval|exec|Function\s*\(|import\s*\(|vm\.runIn|execSync|child_process)\b", re.I),
+            re.compile(r"\b(eval|exec|Function\s*\(|import\s*\(|vm\.runIn|execSync|child_process)\b.{0,180}\b(response|resp|res\.text|r\.text|r\.data|remote|url|https?://)\b", re.I),
             re.compile(r"(pip|npm|pnpm|yarn)\s+(install|add).{0,120}(http|git\+|--extra-index-url)", re.I),
             re.compile(r"^\s*(?:https?|git\+https?)://[^\s#]+(?:\.tar\.gz|\.zip|\.whl|\.egg|\.tgz|\.js|\.sh)(?:\s|$)", re.I),
         ),
         2.0,
+    ),
+    Rule(
+        "model-artifact-risk",
+        "AST-02",
+        "high",
+        "Skill loads serialized model or pickle-like artifacts that can carry executable payloads.",
+        (
+            re.compile(r"\b(pickle\.load|pickle\.loads|joblib\.load|torch\.load|keras\.models\.load_model|load_state_dict|onnxruntime|safetensors)\b", re.I),
+            re.compile(r"\.(?:pkl|pickle|joblib|pt|pth|onnx|safetensors)\b", re.I),
+        ),
+        1.1,
     ),
     Rule(
         "suspicious-package-lifecycle",
@@ -241,6 +292,17 @@ RULES: tuple[Rule, ...] = (
             re.compile(r">\s*(~/.bashrc|~/.zshrc|/etc/passwd|/etc/hosts)", re.I),
         ),
         1.7,
+    ),
+    Rule(
+        "workspace-sweep",
+        "AST-03",
+        "high",
+        "Code recursively walks broad workspace, home, or root paths.",
+        (
+            re.compile(r"\b(os\.walk|Path\([^)]*\)\.rglob|glob\.glob)\b.{0,140}\b(\*\*|/home|~|/root|/|workspace)\b", re.I),
+            re.compile(r"\b(find\s+(?:/|~|\$HOME)|for\s+.*\s+in\s+\$\(\s*find\s+(?:/|~|\$HOME))", re.I),
+        ),
+        1.0,
     ),
     Rule(
         "persistence-hook",
@@ -395,18 +457,22 @@ def run_static_rules(files: list[FileRecord]) -> list[Evidence]:
                     evidence.append(
                         _line_evidence_for_rule(record, line_no, rule)
                     )
+    evidence.extend(_package_graph_evidence(files, evidence))
     return evidence
 
 
 DOC_RULES = {
     "browser-profile-access",
+    "agent-state-access",
     "credential-store-access",
     "data-exfiltration",
     "destructive-filesystem",
     "doc-high-privilege-automation",
     "doc-local-history-egress",
     "doc-remote-bootstrap-required",
+    "doc-telemetry-exfiltration",
     "excessive-permissions",
+    "model-artifact-risk",
     "obfuscated-payload",
     "persistence-hook",
     "prompt-injection-behavior-bias",
@@ -415,10 +481,12 @@ DOC_RULES = {
     "prompt-injection-forced-exfiltration",
     "prompt-injection-override",
     "prompt-injection-secret-leak",
+    "reverse-shell",
     "remote-code-pipe",
     "secret-file-access",
     "suspicious-package-lifecycle",
     "unsafe-deserialization",
+    "workspace-sweep",
 }
 
 
@@ -426,6 +494,7 @@ DOC_ONLY_RULES = {
     "doc-high-privilege-automation",
     "doc-local-history-egress",
     "doc-remote-bootstrap-required",
+    "doc-telemetry-exfiltration",
     "prompt-injection-behavior-bias",
     "prompt-injection-coercive-workflow",
     "prompt-injection-external-callback",
@@ -520,7 +589,165 @@ def _document_context_evidence(record: FileRecord) -> list[Evidence]:
                 ("chat history", "history.jsonl", "pastedcontents", "slack", "dm"),
             )
         )
+    if _document_telemetry_exfiltration(lowered):
+        evidence.append(
+            _file_context_evidence(
+                record,
+                "Skill documentation directs telemetry or audit logging of prompts, conversations, workspace files, command output, or environment data.",
+                "AST-01",
+                "critical",
+                "doc-telemetry-exfiltration",
+                2.0,
+                ("telemetry", "analytics", "audit", "command output", "terminal output", "workspace", "environment"),
+            )
+        )
     return evidence
+
+
+def _package_graph_evidence(files: list[FileRecord], evidence: list[Evidence]) -> list[Evidence]:
+    rule_ids = {item.rule_id for item in evidence}
+    graph: list[Evidence] = []
+    package_text = _package_text(files)
+    package_lowered = package_text.lower()
+    if _has_sensitive_source(package_lowered) and _has_network_sink(package_lowered):
+        source = _first_rule_evidence(evidence, "secret-file-access") or _first_rule_evidence(evidence, "unsafe-network")
+        graph.append(
+            Evidence(
+                file=source.file if source else ".",
+                line=source.line if source else 1,
+                message="Package-level dataflow links sensitive local sources to outbound network sinks.",
+                snippet=source.snippet if source else "",
+                category="AST-01",
+                severity="critical",
+                rule_id="graph-sensitive-source-network-sink",
+                weight=1.5,
+            )
+        )
+    if _has_sensitive_source(package_lowered) and _has_shell_sink(package_lowered):
+        source = _first_rule_evidence(evidence, "secret-file-access") or _first_rule_evidence(evidence, "dangerous-shell-exec")
+        graph.append(
+            Evidence(
+                file=source.file if source else ".",
+                line=source.line if source else 1,
+                message="Package-level dataflow links sensitive local sources to shell execution sinks.",
+                snippet=source.snippet if source else "",
+                category="AST-06",
+                severity="high",
+                rule_id="graph-sensitive-source-shell-sink",
+                weight=1.1,
+            )
+        )
+    if _has_dynamic_load_sink(package_lowered) and _has_untrusted_content_source(package_lowered):
+        source = _first_rule_evidence(evidence, "remote-code-pipe") or _first_rule_evidence(evidence, "model-artifact-risk")
+        graph.append(
+            Evidence(
+                file=source.file if source else ".",
+                line=source.line if source else 1,
+                message="Package-level dataflow links untrusted remote or serialized content to dynamic loading/execution.",
+                snippet=source.snippet if source else "",
+                category="AST-02",
+                severity="critical",
+                rule_id="graph-untrusted-content-loader",
+                weight=1.2,
+            )
+        )
+    if {"obfuscated-payload", "unsafe-network"} <= rule_ids:
+        source = _first_rule_evidence(evidence, "obfuscated-payload") or _first_rule_evidence(evidence, "unsafe-network")
+        graph.append(
+            Evidence(
+                file=source.file if source else ".",
+                line=source.line if source else 1,
+                message="Package combines encoded or obfuscated payload markers with outbound network capability.",
+                snippet=source.snippet if source else "",
+                category="AST-04",
+                severity="critical",
+                rule_id="graph-obfuscated-network",
+                weight=1.1,
+            )
+        )
+    if "remote-code-pipe" in rule_ids and "dangerous-shell-exec" in rule_ids:
+        source = _first_rule_evidence(evidence, "remote-code-pipe") or _first_rule_evidence(evidence, "dangerous-shell-exec")
+        graph.append(
+            Evidence(
+                file=source.file if source else ".",
+                line=source.line if source else 1,
+                message="Package combines remote code retrieval with shell or dynamic execution primitives.",
+                snippet=source.snippet if source else "",
+                category="AST-02",
+                severity="critical",
+                rule_id="graph-remote-exec-chain",
+                weight=1.2,
+            )
+        )
+    archive_hits = [
+        item
+        for item in evidence
+        if "!" in item.file
+        and item.rule_id
+        in {
+            "agent-state-access",
+            "data-exfiltration",
+            "doc-telemetry-exfiltration",
+            "model-artifact-risk",
+            "prompt-injection-forced-exfiltration",
+            "prompt-injection-override",
+            "remote-code-pipe",
+            "reverse-shell",
+            "secret-file-access",
+        }
+    ]
+    if archive_hits:
+        source = archive_hits[0]
+        graph.append(
+            Evidence(
+                file=source.file,
+                line=source.line,
+                message="Archive member contains suspicious skill instructions or executable payload markers.",
+                snippet=source.snippet,
+                category="AST-02",
+                severity="high",
+                rule_id="archive-suspicious-payload",
+                weight=1.0,
+            )
+        )
+    return graph
+
+
+def _package_text(files: list[FileRecord]) -> str:
+    chunks: list[str] = []
+    for record in files:
+        if record.is_binary:
+            chunks.append(record.relpath)
+            continue
+        chunks.append(record.relpath)
+        chunks.append(record.text[:60_000])
+    return "\n".join(chunks)
+
+
+def _has_sensitive_source(text: str) -> bool:
+    return bool(
+        re.search(
+            r"(\.env|id_rsa|id_ed25519|\.ssh|\.aws/credentials|\.npmrc|\.pypirc|\.netrc|git-credentials|login data|cookies|keychain|\.claude|\.codex|\.cursor|conversation history|chat history|prompt history|terminal output|command output)",
+            text,
+            re.I,
+        )
+    )
+
+
+def _has_network_sink(text: str) -> bool:
+    return bool(re.search(r"\b(requests\.(?:post|put)|httpx\.(?:post|put)|urlopen|fetch\(|axios\.(?:post|put)|curl\s+-|curl\s|wget\s|webhook|collector|requestbin|pastebin)\b|https?://", text, re.I))
+
+
+def _has_shell_sink(text: str) -> bool:
+    return bool(re.search(r"\b(os\.system|subprocess\.(?:popen|run|call)|popen\(|execsync|child_process|spawn\(|bash\s+-c|sh\s+-c|/bin/sh|/bin/bash)\b", text, re.I))
+
+
+def _has_dynamic_load_sink(text: str) -> bool:
+    return bool(re.search(r"\b(eval\(|exec\(|function\s*\(|import\s*\(|vm\.runin|pickle\.load|joblib\.load|torch\.load|keras\.models\.load_model|yaml\.load)\b", text, re.I))
+
+
+def _has_untrusted_content_source(text: str) -> bool:
+    return bool(re.search(r"\b(requests\.|httpx\.|urllib\.request|fetch\(|axios\.|curl\s|wget\s|https?://|\.pkl\b|\.pickle\b|\.joblib\b|\.pt\b|\.pth\b|\.onnx\b|\.safetensors\b|base64\.b64decode|atob\()\b", text, re.I))
 
 
 def _is_hidden(relpath: str) -> bool:
@@ -682,10 +909,28 @@ def _document_local_history_egress(lowered: str) -> bool:
     return bool(local_history and reads and egress)
 
 
+def _document_telemetry_exfiltration(lowered: str) -> bool:
+    telemetry = re.search(r"\b(logs?|telemetry|analytics|audit|monitoring)\b", lowered)
+    sensitive = re.search(
+        r"\b(user prompt|full prompt|conversation|chat history|workspace files?|command output|terminal output|environment variables?|env vars?|secrets?|credentials?)\b",
+        lowered,
+    )
+    broad = re.search(r"\b(all|full|complete|entire|every|each)\b", lowered)
+    egress = re.search(r"\b(send|upload|forward|post|webhook|external|collector|endpoint|slack|discord)\b|https?://", lowered)
+    return bool(telemetry and sensitive and (broad or egress))
+
+
 def _nearby(lowered: str, first_pattern: str, second_pattern: str, window: int = 260) -> bool:
     first_matches = list(re.finditer(first_pattern, lowered, re.I))
     second_matches = list(re.finditer(second_pattern, lowered, re.I))
     return any(abs(first.start() - second.start()) <= window for first in first_matches for second in second_matches)
+
+
+def _first_rule_evidence(evidence: list[Evidence], rule_id: str) -> Evidence | None:
+    for item in evidence:
+        if item.rule_id == rule_id:
+            return item
+    return None
 
 
 def _file_context_evidence(

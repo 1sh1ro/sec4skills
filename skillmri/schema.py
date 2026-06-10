@@ -55,6 +55,8 @@ class ScanContext:
 class ScanOptions:
     max_file_bytes: int = 1_000_000
     max_total_files: int = 2500
+    max_archive_members: int = 80
+    max_archive_file_bytes: int = 120_000
     sandbox: str = "off"
     output: str = "json"
     fail_on_malicious: bool = False

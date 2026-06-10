@@ -272,7 +272,7 @@ def contest_row(skill_id: str, result: dict[str, Any]) -> dict[str, Any]:
     if not evidence:
         evidence = "No high-risk evidence found."
     category = contest_category(str(result.get("primary_category", "AST-10")))
-    verdict = result.get("label", "suspicious")
+    verdict = _contest_verdict(result, category)
     return {
         "skill_id": skill_id,
         "verdict": verdict,
@@ -282,6 +282,23 @@ def contest_row(skill_id: str, result: dict[str, Any]) -> dict[str, Any]:
         "engine_category": "benign" if verdict == "benign" else category.lower(),
         "evidence_text": evidence[:2000],
     }
+
+
+def _contest_verdict(result: dict[str, Any], category: str) -> str:
+    label = str(result.get("label", "suspicious"))
+    if label != "benign":
+        return label
+    if category == "AST10":
+        return label
+    if not result.get("evidence"):
+        return label
+    try:
+        score = int(result.get("risk_score", 0))
+    except (TypeError, ValueError):
+        score = 0
+    if score >= 8:
+        return "suspicious"
+    return label
 
 
 def contest_category(category: str) -> str:
