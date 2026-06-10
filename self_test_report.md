@@ -25,13 +25,20 @@ detection quality and evaluator compatibility with generalized changes:
 - `SKILLSEC_INPUT_DIR`/`SKILLSEC_OUTPUT_DIR` support and compatibility aliases
   for the platform sample schema
 - hidden nested skill payloads under `.claude/skills`, `.codex/skills`, or
-  `.cursor/skills` map to `AST06`
+  `.cursor/skills` map to `AST01`
 - injected value-alignment, moderation, legal, or political output constraints
   map to `AST01`
-- unrelated external callback/collector snippets embedded in skill docs map to
-  `AST02`
+- unrelated external callback/collector snippets embedded in skill docs,
+  credential theft, persistence, and destructive operations map to `AST01`
+- remote bootstrap, package lifecycle downloads, and remote code execution
+  setup paths map to `AST02`
+- broad filesystem/network/secret/shell permission manifests map to `AST03`
+- obfuscated metadata and hidden non-skill files map to `AST04`
+- unsafe YAML/object/prototype deserialization markers map to `AST05`
 - tutorial-only bootstrap examples and normal service API credentials are
   downweighted to reduce clean-skill false positives
+- static malicious verdicts are no longer downgraded by the local evidence
+  scorer, preserving the recall-weighted F2 objective
 
 No LLM, network call, package install, or heavy dependency was added.
 
@@ -48,7 +55,7 @@ PYTHONPATH=. python3 -m skillmri contest \
 Synthetic two-skill smoke result:
 
 - `benign_001`: `benign`, category `AST10`
-- `malicious_001`: `malicious`, category `AST02`
+- `malicious_001`: `malicious`, category `AST01`
 - env-var runner smoke: `SKILLSEC_INPUT_DIR` -> `SKILLSEC_OUTPUT_DIR/results.jsonl`
   produced `sample_001`, `malicious`, category `AST01`
 
@@ -104,13 +111,23 @@ and 31 malicious.
 
 Full-corpus regression check:
 
-- Accuracy: `0.8514`
-- Malicious precision: `0.9394`
+- Accuracy: `0.8243`
+- Malicious precision: `0.9118`
 - Malicious recall: `1.0`
-- Malicious F2: `0.9873`
+- Malicious F2: `0.9810`
 - False negatives: `0`
-- False positives: `2`
-- Category accuracy: `0.7451`
+- False positives: `3`
+- Category accuracy: `0.8039`
+
+Additional non-curated stress set:
+
+- Samples: `14`
+- Malicious precision: `1.0`
+- Malicious recall: `1.0`
+- Malicious F2: `1.0`
+- False negatives: `0`
+- False positives: `0`
+- Benign strict malicious false-positive rate: `0.0`
 
 This full-corpus score is treated only as a regression signal because it is a
 curated development corpus, not an independent benchmark.

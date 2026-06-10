@@ -78,7 +78,7 @@ Published contest image:
 
 ```text
 ghcr.io/1sh1ro/sec4skills:contest
-sha256:09f8bb4e41d7a90b266f34fb0bd21ffee2101b532ab873db1f41c3d25dcb5af3
+PENDING_GHCR_DIGEST
 ```
 
 The repository `dist/sec4skills-track-b-submission.tar.gz` archive follows the
@@ -114,13 +114,21 @@ Do not tune against the full-corpus score alone. `train-rl` now uses a determini
 
 Current full-corpus regression score with the packaged contest defaults:
 
-- Accuracy: 0.8514
-- Malicious precision: 0.9394
+- Accuracy: 0.8243
+- Malicious precision: 0.9118
 - Malicious recall: 1.0
-- Malicious F2: 0.9873
+- Malicious F2: 0.9810
 - False negatives: 0
-- False positives: 2
-- Category accuracy: 0.7451
+- False positives: 3
+- Category accuracy: 0.8039
+
+The v0.1.4 contest build also runs a separate 14-sample stress set that is not
+part of the curated development corpus. It covers pure-document exfiltration,
+unsafe YAML tags, package lifecycle bootstrap, broad permission manifests,
+hidden nested skills, reverse shell patterns, browser credential access, and
+benign controls for install docs, API clients, secret linters, and base64 tools.
+That stress set scores malicious recall 1.0, malicious F2 1.0, strict benign
+malicious false-positive rate 0.0, and benign non-benign rate 0.0.
 
 Use `--no-rl-policy` when precision on known-benign internal tooling matters more than recall. For contest tuning, keep a separate private validation set of real black/white/gray submissions and only promote policy changes that improve held-out F2 without introducing avoidable benign false positives.
 
@@ -154,12 +162,12 @@ These numbers are not directly comparable to Skill-Inject's paper ASR because Sk
   "malicious": true,
   "confidence": 0.96,
   "risk_score": 49,
-  "primary_category": "AST-02",
+  "primary_category": "AST-01",
   "evidence": [
     {
       "file": "run.py",
       "line": 4,
-      "category": "AST-02",
+      "category": "AST-01",
       "severity": "critical",
       "rule_id": "secret-file-access",
       "message": "Code references common secret stores or private key material."

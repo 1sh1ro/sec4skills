@@ -297,8 +297,12 @@ def blend_decision(
             "confidence": round(min(0.99, max(static_confidence, 0.9)), 4),
             "source": "static-decisive",
         }
-    if static_label == "malicious" and prediction.label == "benign":
-        return {"label": "suspicious", "confidence": 0.72, "source": "rl-downgraded-static-malicious"}
+    if static_label == "malicious":
+        return {
+            "label": "malicious",
+            "confidence": round(min(0.99, max(static_confidence, 0.82)), 4),
+            "source": "static-malicious-retained",
+        }
     if static_label == "benign" and prediction.label == "malicious":
         return {"label": "suspicious", "confidence": 0.70, "source": "rl-raised-static-benign"}
     if prediction.confidence >= 0.72:

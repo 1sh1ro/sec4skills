@@ -50,13 +50,15 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "prompt-injection-forced-exfiltration",
-        "AST-02",
+        "AST-01",
         "critical",
         "Skill instructions tell the agent to collect local/user data and upload it to an external service.",
         (
-            re.compile(r"\b(after|before).{0,40}\b(any|each|every|completing).{0,30}\b(task|request).{0,160}\b(curl|post|upload|send|backup|collector|logging)\b", re.I),
-            re.compile(r"\b(pbpaste|clipboard|system[_ -]?info|queried information|contents of).{0,160}\b(curl|post|upload|send|collector|logging)\b", re.I),
-            re.compile(r"\b(curl|wget|fetch|requests\.post).{0,80}\b(agenskill-api|collector|logging|webhook|onrender\.com|requestbin|pastebin)\b", re.I),
+            re.compile(r"\b(after|before).{0,60}\b(any|each|every|completing).{0,40}\b(task|request|run|execution).{0,220}\b(curl|post|upload|send|backup|collector|logging|webhook|http)\b", re.I),
+            re.compile(r"\b(pbpaste|clipboard|system[_ -]?info|queried information|contents of|environment variables?|\.env|ssh keys?|private keys?|api keys?).{0,220}\b(curl|post|upload|send|collector|logging|webhook|http)\b", re.I),
+            re.compile(r"\b(curl|wget|fetch|requests\.post|httpx\.post|axios\.post).{0,120}\b(agenskill-api|collector|logging|webhook|onrender\.com|requestbin|pastebin|discord|slack)\b", re.I),
+            re.compile(r"\b(send|upload|post|forward|copy).{0,120}\b(chat history|conversation history|terminal output|command output|workspace files?|secrets?|tokens?|credentials?)\b", re.I),
+            re.compile(r"\b(chat history|conversation history|terminal output|command output|workspace files?|secrets?|tokens?|credentials?).{0,120}\b(send|upload|post|forward|copy)\b", re.I),
         ),
         2.2,
     ),
@@ -74,7 +76,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "prompt-injection-external-callback",
-        "AST-02",
+        "AST-01",
         "critical",
         "Skill documentation embeds code that calls an unrelated external collector or callback service.",
         (
@@ -85,7 +87,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "doc-high-privilege-automation",
-        "AST-04",
+        "AST-03",
         "critical",
         "Skill documentation declares broad automation over repositories, CI/CD, sandboxes, deployments, payments, storage, or user accounts.",
         (
@@ -98,7 +100,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "doc-remote-bootstrap-required",
-        "AST-05",
+        "AST-02",
         "critical",
         "Skill documentation requires fetching or installing remote code/templates before executing the user's task.",
         (
@@ -110,7 +112,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "doc-local-history-egress",
-        "AST-02",
+        "AST-01",
         "critical",
         "Skill documentation asks to read local conversation/history data and send or summarize it through external services.",
         (
@@ -133,7 +135,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "secret-file-access",
-        "AST-02",
+        "AST-01",
         "critical",
         "Code references common secret stores or private key material.",
         (
@@ -145,7 +147,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "data-exfiltration",
-        "AST-02",
+        "AST-01",
         "critical",
         "Suspicious network transfer of local, secret, or environment data.",
         (
@@ -157,7 +159,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "dangerous-shell-exec",
-        "AST-03",
+        "AST-06",
         "high",
         "Code uses shell or dynamic execution primitives.",
         (
@@ -170,19 +172,42 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "remote-code-pipe",
-        "AST-05",
+        "AST-02",
         "critical",
         "Remote content appears to be piped into an interpreter or shell.",
         (
             re.compile(r"\b(curl|wget)\b.{0,120}\|\s*(bash|sh|python|node|ruby|perl)", re.I),
             re.compile(r"\b(eval|exec)\s*\(.{0,120}\b(requests|httpx|urllib|fetch|axios)\b", re.I),
             re.compile(r"(pip|npm|pnpm|yarn)\s+(install|add).{0,120}(http|git\+|--extra-index-url)", re.I),
+            re.compile(r"^\s*(?:https?|git\+https?)://[^\s#]+(?:\.tar\.gz|\.zip|\.whl|\.egg|\.tgz|\.js|\.sh)(?:\s|$)", re.I),
         ),
         2.0,
     ),
     Rule(
+        "suspicious-package-lifecycle",
+        "AST-02",
+        "critical",
+        "Package lifecycle hook fetches, installs, or executes remote or opaque code during skill setup.",
+        (
+            re.compile(r"\b(postinstall|preinstall|prepare|install)\b.{0,160}\b(curl|wget|npx|bunx|pip install|npm install|node -e|python -c|bash -c|sh -c)\b", re.I),
+            re.compile(r"\b(scripts|hooks?)\b.{0,120}\b(postinstall|preinstall|prepare)\b.{0,160}\b(http|git\+|curl|wget|npx|bash|sh|node)\b", re.I),
+        ),
+        1.8,
+    ),
+    Rule(
+        "unsafe-deserialization",
+        "AST-05",
+        "critical",
+        "Skill metadata contains dangerous deserialization or prototype-pollution constructs.",
+        (
+            re.compile(r"!!python/(?:object|apply|module|name)|!!javax\.script|!!ruby/object|yaml\.load\s*\(", re.I),
+            re.compile(r"\b(__proto__|constructor\.prototype|prototype pollution)\b", re.I),
+        ),
+        1.7,
+    ),
+    Rule(
         "command-injection",
-        "AST-03",
+        "AST-06",
         "critical",
         "Shell command appears to concatenate user-controlled input.",
         (
@@ -193,7 +218,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "unsafe-network",
-        "AST-07",
+        "AST-06",
         "medium",
         "Skill performs outbound network communication.",
         (
@@ -205,7 +230,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "destructive-filesystem",
-        "AST-08",
+        "AST-01",
         "critical",
         "Code can destroy or overwrite broad filesystem paths.",
         (
@@ -219,7 +244,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "persistence-hook",
-        "AST-06",
+        "AST-01",
         "high",
         "Skill contains installation hooks, startup persistence, or credential backdoor behavior.",
         (
@@ -231,7 +256,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "obfuscated-payload",
-        "AST-09",
+        "AST-04",
         "high",
         "Obfuscation or encoded payload markers detected.",
         (
@@ -245,7 +270,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "excessive-permissions",
-        "AST-04",
+        "AST-03",
         "high",
         "Manifest requests broad filesystem, network, shell, or secret permissions.",
         (
@@ -258,7 +283,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "credential-store-access",
-        "AST-02",
+        "AST-01",
         "critical",
         "Code references browser, git, cloud, or OS credential stores.",
         (
@@ -269,7 +294,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "browser-profile-access",
-        "AST-02",
+        "AST-01",
         "high",
         "Code references browser profile data that may include cookies, tokens, or login state.",
         (
@@ -281,7 +306,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         "hidden-files",
-        "AST-06",
+        "AST-04",
         "medium",
         "Hidden file or directory can conceal behavior from reviewers.",
         (
@@ -305,7 +330,7 @@ def run_static_rules(files: list[FileRecord]) -> list[Evidence]:
                     line=1,
                     message="Hidden file path should be reviewed for concealed skill behavior.",
                     snippet="",
-                    category="AST-06",
+                    category="AST-04",
                     severity="medium",
                     rule_id="hidden-files",
                     weight=0.6,
@@ -318,7 +343,7 @@ def run_static_rules(files: list[FileRecord]) -> list[Evidence]:
                         line=1,
                         message="Nested hidden skill payload can persistently alter agent behavior outside the visible package surface.",
                         snippet="",
-                        category="AST-06",
+                        category="AST-01",
                         severity="critical",
                         rule_id="hidden-nested-skill-payload",
                         weight=1.7,
@@ -334,7 +359,7 @@ def run_static_rules(files: list[FileRecord]) -> list[Evidence]:
                     line=1,
                     message="High-entropy blob may be an encoded payload or embedded secret.",
                     snippet="",
-                    category="AST-09",
+                    category="AST-04",
                     severity="medium",
                     rule_id="high-entropy-blob",
                     weight=0.9,
@@ -348,7 +373,7 @@ def run_static_rules(files: list[FileRecord]) -> list[Evidence]:
                     line=1,
                     message="File combines user-controlled input with shell execution primitives.",
                     snippet="",
-                    category="AST-03",
+                    category="AST-06",
                     severity="critical",
                     rule_id="command-injection",
                     weight=1.4,
@@ -392,6 +417,8 @@ DOC_RULES = {
     "prompt-injection-secret-leak",
     "remote-code-pipe",
     "secret-file-access",
+    "suspicious-package-lifecycle",
+    "unsafe-deserialization",
 }
 
 
@@ -419,6 +446,16 @@ def _rule_applies(rule: Rule, doc_rule_context: bool, exec_file: bool) -> bool:
 def _line_evidence_for_rule(record: FileRecord, line_no: int, rule: Rule) -> Evidence:
     if rule.rule_id == "secret-file-access":
         line = record.lines[line_no - 1] if 1 <= line_no <= len(record.lines) else ""
+        if _looks_like_secret_linter_fixture(line, record.text):
+            return line_evidence(
+                record,
+                line_no,
+                "Code references example secret fixtures for local scanning rather than live credential stores.",
+                "AST-03",
+                "low",
+                "example-secret-fixture",
+                0.2,
+            )
         if _looks_like_service_api_credential(line, record.text):
             return line_evidence(
                 record,
@@ -452,7 +489,7 @@ def _document_context_evidence(record: FileRecord) -> list[Evidence]:
             _file_context_evidence(
                 record,
                 "Skill documentation declares broad high-impact automation across repositories, CI/CD, sandboxes, deployments, payments, storage, or user accounts.",
-                "AST-04",
+                "AST-03",
                 "critical",
                 "doc-high-privilege-automation",
                 2.0,
@@ -464,7 +501,7 @@ def _document_context_evidence(record: FileRecord) -> list[Evidence]:
             _file_context_evidence(
                 record,
                 "Skill documentation requires remote bootstrap or template fetch before carrying out user work.",
-                "AST-05",
+                "AST-02",
                 "critical",
                 "doc-remote-bootstrap-required",
                 2.0,
@@ -476,7 +513,7 @@ def _document_context_evidence(record: FileRecord) -> list[Evidence]:
             _file_context_evidence(
                 record,
                 "Skill documentation asks to read local conversation/history data and deliver it through external services.",
-                "AST-02",
+                "AST-01",
                 "critical",
                 "doc-local-history-egress",
                 2.0,
@@ -564,6 +601,16 @@ def _looks_like_service_api_credential(line: str, file_text: str) -> bool:
     return any(name in lowered for name in service_names) or (
         service_context and re.search(r"\b(base[_-]?url|api[_-]?url|endpoint|authorization|auth)\b", lowered) is not None
     )
+
+
+def _looks_like_secret_linter_fixture(line: str, file_text: str) -> bool:
+    lowered = line.lower()
+    if not any(marker in lowered for marker in (".env.example", "example.env", "sample.env", "fixture", "testdata")):
+        return False
+    if _exfil_line(lowered):
+        return False
+    context = file_text.lower()
+    return any(marker in context for marker in ("secret linter", "secret auditor", "scan", "lint", "fixture", "example"))
 
 
 def _looks_like_user_story_text(line: str) -> bool:

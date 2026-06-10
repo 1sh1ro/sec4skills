@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -64,12 +65,18 @@ def risk_score(evidence: list[Evidence]) -> int:
     if any(item.rule_id == "obfuscated-payload" for item in evidence):
         if any(item.rule_id.startswith("contract-undeclared-network") for item in evidence):
             raw += 8
+    if _broad_permission_combo(evidence):
+        raw += 18
     if _benign_declared_local_shell(evidence):
         raw -= 10
     if _benign_declared_local_obfuscation(evidence):
         raw -= 14
     if _benign_service_api_client(evidence):
         raw -= 36
+    if _fixed_local_shell_only(evidence):
+        raw -= 10
+    if _benign_small_base64_utility(evidence):
+        raw -= 24
     return min(100, max(0, int(round(raw))))
 
 
@@ -90,7 +97,11 @@ def weighted_category_score(evidence: list[Evidence], all_evidence: list[Evidenc
 
 def verdict(score: int, evidence: list[Evidence]) -> tuple[str, float]:
     has_critical = any(item.severity == "critical" for item in evidence)
-    if score >= 45 or (score >= 30 and has_critical):
+    if _has_decisive_malicious_evidence(evidence) and score >= 24:
+        return "malicious", min(0.99, 0.62 + score / 130)
+    if _broad_permission_combo(evidence) and score >= 30:
+        return "malicious", min(0.94, 0.58 + score / 140)
+    if score >= 42 or (score >= 28 and has_critical):
         return "malicious", min(0.99, 0.55 + score / 120)
     if any(item.rule_id.startswith("contract-undeclared-") or item.rule_id.startswith("contract-contradicted-") for item in evidence) and score >= 14:
         return "suspicious", min(0.86, 0.50 + score / 160)
@@ -132,6 +143,17 @@ def _benign_declared_local_shell(evidence: list[Evidence]) -> bool:
     return "contract-undeclared-shell" not in rule_ids and not any(item.severity == "critical" for item in evidence)
 
 
+def _broad_permission_combo(evidence: list[Evidence]) -> bool:
+    snippets = "\n".join(item.snippet.lower() for item in evidence if item.rule_id == "excessive-permissions")
+    if not snippets:
+        return False
+    broad_file = re.search(r"(filesystem|fs|file).{0,20}(all|\*|full|write)", snippets)
+    broad_net = re.search(r"(network|net).{0,20}(all|\*|full|egress)", snippets)
+    broad_secret = re.search(r"(secrets?|credentials?).{0,20}(read|all|\*)", snippets)
+    broad_shell = re.search(r"(shell|terminal|command).{0,20}(true|all|execute)", snippets)
+    return sum(bool(value) for value in (broad_file, broad_net, broad_secret, broad_shell)) >= 3
+
+
 def _benign_declared_local_obfuscation(evidence: list[Evidence]) -> bool:
     rule_ids = {item.rule_id for item in evidence}
     if rule_ids & {"data-exfiltration", "remote-code-pipe", "canary-simulated-secret-egress"}:
@@ -170,22 +192,94 @@ def _benign_service_api_client(evidence: list[Evidence]) -> bool:
     return not risky_secret_hits
 
 
+def _fixed_local_shell_only(evidence: list[Evidence]) -> bool:
+    rule_ids = {item.rule_id for item in evidence}
+    if "dangerous-shell-exec" not in rule_ids:
+        return False
+    if rule_ids & {
+        "canary-simulated-shell-secret",
+        "command-injection",
+        "data-exfiltration",
+        "remote-code-pipe",
+        "secret-file-access",
+    }:
+        return False
+    if any(_reverse_shell_marker(item.snippet) for item in evidence if item.rule_id == "dangerous-shell-exec"):
+        return False
+    return True
+
+
+def _benign_small_base64_utility(evidence: list[Evidence]) -> bool:
+    rule_ids = {item.rule_id for item in evidence}
+    if "obfuscated-payload" not in rule_ids:
+        return False
+    if rule_ids & {
+        "canary-simulated-secret-egress",
+        "data-exfiltration",
+        "remote-code-pipe",
+        "secret-file-access",
+        "suspicious-package-lifecycle",
+    }:
+        return False
+    snippets = " ".join(item.snippet.lower() for item in evidence)
+    if any(marker in snippets for marker in ("evil", "webhook", "token", "secret", ".env", "id_rsa", "curl", "wget", "http")):
+        return False
+    return any("base64" in item.snippet.lower() for item in evidence)
+
+
 def _category_priority(category: str, evidence: list[Evidence]) -> float:
     rule_ids = {item.rule_id for item in evidence if item.category == category}
     if category == "AST-01":
-        return 18.0
-    if category == "AST-02" and rule_ids & {"data-exfiltration", "credential-store-access", "secret-file-access", "prompt-injection-forced-exfiltration"}:
+        if rule_ids & {
+            "canary-simulated-secret-egress",
+            "credential-store-access",
+            "data-exfiltration",
+            "destructive-filesystem",
+            "doc-local-history-egress",
+            "hidden-nested-skill-payload",
+            "persistence-hook",
+            "prompt-injection-coercive-workflow",
+            "prompt-injection-external-callback",
+            "prompt-injection-forced-exfiltration",
+            "prompt-injection-override",
+            "prompt-injection-secret-leak",
+            "secret-file-access",
+        }:
+            return 20.0
         return 12.0
-    if category == "AST-05" and "remote-code-pipe" in rule_ids:
-        return 11.0
-    if category == "AST-08" and "destructive-filesystem" in rule_ids:
+    if category == "AST-02" and rule_ids & {"doc-remote-bootstrap-required", "remote-code-pipe", "suspicious-package-lifecycle"}:
+        return 17.0
+    if category == "AST-03" and rule_ids & {"doc-high-privilege-automation", "excessive-permissions", "contract-undeclared-secrets"}:
+        return 14.0
+    if category == "AST-04" and rule_ids & {"browser-profile-access", "hidden-files", "high-entropy-blob", "insecure-metadata", "obfuscated-payload", "unsafe-deserialization"}:
         return 10.0
-    if category == "AST-06" and "persistence-hook" in rule_ids:
-        return 8.0
-    if category == "AST-09" and "obfuscated-payload" in rule_ids:
+    if category == "AST-05" and "unsafe-deserialization" in rule_ids:
+        return 12.0
+    if category == "AST-06" and rule_ids & {"command-injection", "dangerous-shell-exec", "unsafe-network"}:
         return 7.0
     if category == "AST-10":
-        return -10.0
+        return -12.0
     if category == "AST-07":
-        return -7.0
+        return -9.0
     return 0.0
+
+
+def _has_decisive_malicious_evidence(evidence: list[Evidence]) -> bool:
+    decisive_rules = {
+        "canary-simulated-secret-egress",
+        "command-injection",
+        "credential-store-access",
+        "data-exfiltration",
+        "destructive-filesystem",
+        "doc-local-history-egress",
+        "hidden-nested-skill-payload",
+        "persistence-hook",
+        "prompt-injection-coercive-workflow",
+        "prompt-injection-external-callback",
+        "prompt-injection-forced-exfiltration",
+        "prompt-injection-override",
+        "prompt-injection-secret-leak",
+        "remote-code-pipe",
+        "sandbox-canary-leak-output",
+    }
+    return any(item.rule_id in decisive_rules for item in evidence)

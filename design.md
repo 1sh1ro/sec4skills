@@ -29,9 +29,13 @@ Docker image runs the contest interface:
 
 ## Category Mapping
 
-Internal categories use `AST-01` through `AST-10`. The contest output converts
-these to the required `AST01` through `AST10` format. Benign findings default to
-`AST10` so that every row has a category value.
+Internal categories use the public OWASP Agentic Skills Top 10 numbering:
+`AST-01` Malicious Skills, `AST-02` Supply Chain Compromise, `AST-03`
+Over-Privileged Skills, `AST-04` Insecure Metadata, `AST-05` Unsafe
+Deserialization, `AST-06` Weak Isolation, `AST-07` Update Drift, `AST-08` Poor
+Scanning, `AST-09` No Governance, and `AST-10` Cross-Platform Reuse. The contest
+output converts these to the required `AST01` through `AST10` format. Benign
+findings default to `AST10` so that every row has a category value.
 
 ## Robustness
 
@@ -59,7 +63,7 @@ ghcr.io/1sh1ro/sec4skills:contest
 Bound digest:
 
 ```text
-sha256:09f8bb4e41d7a90b266f34fb0bd21ffee2101b532ab873db1f41c3d25dcb5af3
+PENDING_GHCR_DIGEST
 ```
 
 The submission archive is intentionally a small source and metadata package,

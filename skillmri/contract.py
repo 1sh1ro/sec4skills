@@ -5,13 +5,13 @@ from .schema import Evidence, ScanContext
 
 
 CAPABILITY_TO_CATEGORY = {
-    "network": "AST-07",
-    "filesystem": "AST-04",
-    "shell": "AST-03",
-    "secrets": "AST-02",
-    "delete": "AST-08",
-    "persistence": "AST-06",
-    "obfuscation": "AST-09",
+    "network": "AST-06",
+    "filesystem": "AST-03",
+    "shell": "AST-06",
+    "secrets": "AST-03",
+    "delete": "AST-01",
+    "persistence": "AST-01",
+    "obfuscation": "AST-04",
 }
 
 
@@ -34,7 +34,7 @@ def audit_contract(ctx: ScanContext) -> list[Evidence]:
                     f"Behavior mismatch: skill uses {capability!r} capability but does "
                     f"not clearly declare or justify it ({category_name(category)})."
                 ),
-                category="AST-10" if capability not in {"secrets", "shell", "delete", "persistence"} else category,
+                category=category,
                 severity=severity,
                 rule_id=f"contract-undeclared-{capability}",
                 weight=1.2,
@@ -52,7 +52,7 @@ def audit_contract(ctx: ScanContext) -> list[Evidence]:
                     f"Behavior contradicts the declaration: skill says it avoids {capability!r} "
                     f"but observed code uses that capability."
                 ),
-                category="AST-10" if capability not in {"secrets"} else category,
+                category=category,
                 severity="high" if capability == "network" else _severity_for(capability),
                 rule_id=f"contract-contradicted-{capability}",
                 weight=1.3,
@@ -66,7 +66,7 @@ def audit_contract(ctx: ScanContext) -> list[Evidence]:
                 file=_best_declaration_file(ctx),
                 line=1,
                 message="Capability graph combines secret access and network egress without an explicit user-facing reason.",
-                category="AST-02",
+                category="AST-01",
                 severity="critical",
                 rule_id="contract-secret-egress-combo",
                 weight=1.8,
