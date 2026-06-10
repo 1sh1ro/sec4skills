@@ -21,11 +21,29 @@ Docker image runs the contest interface:
    with actual code and prompt behavior.
 4. Run a safe canary simulation to identify secret-egress patterns without
    executing untrusted samples by default.
-5. Apply a compact local evidence-scoring policy trained for high malicious
+5. Apply a lightweight semantic classifier trained on skill text/code n-grams.
+   It is a pure-Python linear model stored as JSON, so it adds no runtime
+   dependency and only contributes weak evidence when confidence and margin are
+   sufficient.
+6. Apply a compact local evidence-scoring policy trained for high malicious
    recall while preserving deterministic evidence output.
-6. Emit a single Track B row per skill with `verdict`, confidence, primary
+7. Emit a single Track B row per skill with `verdict`, confidence, primary
    OWASP AST category, concise file/line evidence, and compatibility aliases
    `engine_category` and `evidence_text`.
+
+## Lightweight ML Layer
+
+A 0.5B language model was considered for semantic classification, but it is not
+used in the contest image because even quantized weights would add hundreds of
+MB plus CPU inference latency and extra runtime dependencies. The current image
+instead packages `skillmri/semantic_model.json`, a roughly 128 KB linear
+classifier trained from the curated black/white/gray corpus.
+
+The model uses lexical and path features from skill documentation, manifests,
+and code: token n-grams, file suffixes, path tokens, and documentation/code
+prefixes. It predicts both `benign/suspicious/malicious` and the primary AST
+category. The scanner treats this as an auxiliary semantic signal, not as an
+override for decisive static evidence.
 
 ## Category Mapping
 

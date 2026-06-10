@@ -14,6 +14,7 @@ from skillmri.cli import (
 from skillmri.rl_policy import cross_validate_policy, split_examples, train_policy
 from skillmri.scanner import scan
 from skillmri.schema import ScanOptions
+from skillmri.semantic_model import DEFAULT_SEMANTIC_MODEL_PATH, load_semantic_examples, load_semantic_model, predict_files, train_semantic_model
 from skillmri.training_corpus import build_dataset, load_training_examples, scan_manifest_samples, summarize_rows, write_jsonl
 
 
@@ -53,6 +54,32 @@ def test_default_policy_metadata_is_reported() -> None:
     assert result["rl_policy"]["enabled"] is True
     assert result["rl_policy"]["prediction"] in {"benign", "suspicious", "malicious"}
     assert result["rl_policy"]["validation_examples"] is not None
+    assert result["stats"]["semantic_model"]["enabled"] is True
+    assert result["stats"]["semantic_model"]["label"] in {"benign", "suspicious", "malicious"}
+
+
+def test_packaged_semantic_model_is_small_and_usable() -> None:
+    model = load_semantic_model(DEFAULT_SEMANTIC_MODEL_PATH)
+    assert model is not None
+    assert DEFAULT_SEMANTIC_MODEL_PATH.stat().st_size < 250_000
+
+    examples = load_semantic_examples(ROOT / "examples" / "curated_corpus" / "manifest.json")
+    malicious = next(example for example in examples if example.name == "malicious_secret_exfil_python")
+    prediction = predict_files(malicious.files, model)
+
+    assert prediction.label == "malicious"
+    assert prediction.category.startswith("AST-")
+
+
+def test_semantic_training_produces_tiny_dependency_free_model(tmp_path: Path) -> None:
+    build_dataset(tmp_path / "corpus")
+    examples = load_semantic_examples(tmp_path / "corpus" / "manifest.json")
+    model = train_semantic_model(examples, epochs=3, max_features=120, validation_ratio=0.25)
+
+    assert model["model_type"] == "hashed-ngram-linear-semantic-classifier"
+    assert model["corpus_examples"] == len(examples)
+    assert len(model["vocabulary"]) <= 120
+    assert model["validation_examples"] > 0
 
 
 def test_rl_training_uses_stratified_holdout(tmp_path: Path) -> None:

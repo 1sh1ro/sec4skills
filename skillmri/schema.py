@@ -60,3 +60,5 @@ class ScanOptions:
     fail_on_malicious: bool = False
     use_policy: bool = True
     policy_path: Path | None = None
+    use_semantic_model: bool = True
+    semantic_model_path: Path | None = None

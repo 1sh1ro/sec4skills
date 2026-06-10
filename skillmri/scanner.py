@@ -10,6 +10,7 @@ from .rl_policy import apply_policy, load_policy
 from .sandbox import run_canary_sandbox
 from .schema import ScanContext, ScanOptions
 from .scorer import build_result
+from .semantic_model import load_semantic_model, semantic_evidence
 from .static_rules import run_static_rules
 
 
@@ -34,6 +35,12 @@ def scan(target: Path, options: ScanOptions) -> dict[str, Any]:
     ctx.evidence.extend(run_static_rules(files))
     ctx.evidence.extend(audit_contract(ctx))
     ctx.evidence.extend(run_canary_sandbox(ctx, options.sandbox))
+    if options.use_semantic_model:
+        semantic_hits, semantic_stats = semantic_evidence(files, load_semantic_model(options.semantic_model_path))
+        ctx.evidence.extend(semantic_hits)
+        ctx.stats["semantic_model"] = semantic_stats
+    else:
+        ctx.stats["semantic_model"] = {"enabled": False, "reason": "disabled"}
     ctx.stats["declared_capabilities"] = sorted(ctx.declared_capabilities)
     ctx.stats["negative_declarations"] = sorted(ctx.negative_declarations)
     ctx.stats["actual_capabilities"] = sorted(ctx.actual_capabilities)

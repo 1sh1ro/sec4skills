@@ -10,12 +10,13 @@ from . import __version__
 from .rl_policy import DEFAULT_POLICY_PATH, cross_validate_policy, evaluate_policy, split_examples, train_policy, write_policy
 from .scanner import scan
 from .schema import ScanOptions
+from .semantic_model import DEFAULT_SEMANTIC_MODEL_PATH, train_semantic_command
 from .training_corpus import build_dataset, load_training_examples, scan_manifest_samples, summarize_rows, write_jsonl
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] in {"scan", "contest", "build-dataset", "train-rl", "eval-dataset", "eval-paths"}:
+    if argv and argv[0] in {"scan", "contest", "build-dataset", "train-rl", "train-semantic", "eval-dataset", "eval-paths"}:
         command = argv.pop(0)
     else:
         command = "scan"
@@ -26,6 +27,8 @@ def main(argv: list[str] | None = None) -> int:
         return build_dataset_command(argv)
     if command == "train-rl":
         return train_rl_command(argv)
+    if command == "train-semantic":
+        return train_semantic_command(argv)
     if command == "eval-dataset":
         return eval_dataset_command(argv)
     if command == "eval-paths":
@@ -41,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
         fail_on_malicious=args.fail_on_malicious,
         use_policy=not args.no_rl_policy,
         policy_path=args.rl_model,
+        use_semantic_model=not args.no_semantic_model,
+        semantic_model_path=args.semantic_model,
     )
     result = scan(Path(args.target), options)
     emit_result(result, args.output)
@@ -63,6 +68,8 @@ def build_scan_parser(prog: str = "skillmri") -> argparse.ArgumentParser:
     parser.add_argument("--fail-on-malicious", action="store_true")
     parser.add_argument("--rl-model", type=Path, default=None, help="Optional RL evidence scorer policy JSON")
     parser.add_argument("--no-rl-policy", action="store_true", help="Disable the default packaged RL evidence scorer")
+    parser.add_argument("--semantic-model", type=Path, default=None, help="Optional lightweight semantic classifier JSON")
+    parser.add_argument("--no-semantic-model", action="store_true", help="Disable the packaged semantic classifier")
     return parser
 
 
@@ -77,6 +84,8 @@ def contest_command(argv: list[str]) -> int:
     parser.add_argument("--max-file-bytes", type=int, default=1_000_000)
     parser.add_argument("--max-total-files", type=int, default=2500)
     parser.add_argument("--no-rl-policy", action="store_true", help="Disable the default packaged RL evidence scorer")
+    parser.add_argument("--semantic-model", type=Path, default=None, help="Optional lightweight semantic classifier JSON")
+    parser.add_argument("--no-semantic-model", action="store_true", help="Disable the packaged semantic classifier")
     args = parser.parse_args(argv)
 
     options = ScanOptions(
@@ -85,6 +94,8 @@ def contest_command(argv: list[str]) -> int:
         sandbox=args.sandbox,
         output="json",
         use_policy=not args.no_rl_policy,
+        use_semantic_model=not args.no_semantic_model,
+        semantic_model_path=args.semantic_model,
     )
     input_dir = args.input_dir or _default_contest_input_dir()
     rows = run_contest_batch(input_dir, options)

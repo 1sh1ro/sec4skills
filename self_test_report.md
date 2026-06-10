@@ -35,12 +35,18 @@ detection quality and evaluator compatibility with generalized changes:
 - broad filesystem/network/secret/shell permission manifests map to `AST03`
 - obfuscated metadata and hidden non-skill files map to `AST04`
 - unsafe YAML/object/prototype deserialization markers map to `AST05`
+- a lightweight semantic classifier (`skillmri/semantic_model.json`, about
+  128 KB) adds weak ML evidence from skill text/code n-grams when confidence is
+  sufficient
 - tutorial-only bootstrap examples and normal service API credentials are
   downweighted to reduce clean-skill false positives
 - static malicious verdicts are no longer downgraded by the local evidence
   scorer, preserving the recall-weighted F2 objective
 
-No LLM, network call, package install, or heavy dependency was added.
+No LLM, network call, package install, or heavy dependency was added. A 0.5B
+model was considered, but not shipped because quantized weights and CPU
+inference latency are a poor fit for the 16 MB package and performance-focused
+contest path.
 
 ## Local Smoke Test
 
@@ -112,13 +118,23 @@ and 31 malicious.
 
 Full-corpus regression check:
 
-- Accuracy: `0.8243`
+- Accuracy: `0.8378`
 - Malicious precision: `0.9118`
 - Malicious recall: `1.0`
 - Malicious F2: `0.9810`
 - False negatives: `0`
 - False positives: `3`
 - Category accuracy: `0.8039`
+
+Semantic classifier holdout check:
+
+- Model size: `127,527 bytes`
+- Validation samples: `19`
+- Accuracy: `0.8421`
+- Malicious precision: `1.0`
+- Malicious recall: `1.0`
+- Malicious F2: `1.0`
+- False positives: `0`
 
 Additional non-curated stress set:
 

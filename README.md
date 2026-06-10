@@ -8,7 +8,8 @@ The scanner combines four layers:
 2. Behavioral Integrity Verification: compares declared capabilities in `SKILL.md`, manifests, and README files against behavior found in code and prompts.
 3. Canary sandbox probes: by default, a safe simulation that predicts secret-egress paths; optionally, a short local execution probe for known entrypoints.
 4. Evidence graph output: each hit includes `file:line`, severity, rule id, snippet, and OWASP AST-style category.
-5. RL-tuned evidence scoring: a compact offline policy can rank evidence combinations for F2-oriented recall while preserving the static evidence graph.
+5. Lightweight semantic ML: a pure-Python n-gram linear classifier packaged as a small JSON model adds weak semantic evidence without Torch/sklearn/transformers.
+6. RL-tuned evidence scoring: a compact offline policy can rank evidence combinations for F2-oriented recall while preserving the static evidence graph.
 
 ## Quick Start
 
@@ -114,7 +115,7 @@ Do not tune against the full-corpus score alone. `train-rl` now uses a determini
 
 Current full-corpus regression score with the packaged contest defaults:
 
-- Accuracy: 0.8243
+- Accuracy: 0.8378
 - Malicious precision: 0.9118
 - Malicious recall: 1.0
 - Malicious F2: 0.9810
@@ -122,7 +123,7 @@ Current full-corpus regression score with the packaged contest defaults:
 - False positives: 3
 - Category accuracy: 0.8039
 
-The v0.1.4 contest build also runs a separate 14-sample stress set that is not
+The v0.1.5 contest build also runs a separate 14-sample stress set that is not
 part of the curated development corpus. It covers pure-document exfiltration,
 unsafe YAML tags, package lifecycle bootstrap, broad permission manifests,
 hidden nested skills, reverse shell patterns, browser credential access, and
