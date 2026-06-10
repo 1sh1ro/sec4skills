@@ -71,8 +71,8 @@ def contest_command(argv: list[str]) -> int:
         prog="skillmri contest",
         description="Run the Skill CTF blue-team Docker interface: /data/skills/* -> /output/results.jsonl.",
     )
-    parser.add_argument("--input-dir", type=Path, default=Path("/data/skills"))
-    parser.add_argument("--output-file", type=Path, default=Path("/output/results.jsonl"))
+    parser.add_argument("--input-dir", type=Path, default=None)
+    parser.add_argument("--output-file", type=Path, default=None)
     parser.add_argument("--sandbox", choices=("off", "simulate", "run"), default="simulate")
     parser.add_argument("--max-file-bytes", type=int, default=1_000_000)
     parser.add_argument("--max-total-files", type=int, default=2500)
@@ -86,11 +86,15 @@ def contest_command(argv: list[str]) -> int:
         output="json",
         use_policy=not args.no_rl_policy,
     )
-    rows = run_contest_batch(args.input_dir, options)
-    args.output_file.parent.mkdir(parents=True, exist_ok=True)
-    with args.output_file.open("w", encoding="utf-8") as handle:
-        for row in rows:
-            handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+    input_dir = args.input_dir or _default_contest_input_dir()
+    rows = run_contest_batch(input_dir, options)
+    output_files = [args.output_file] if args.output_file else _default_contest_output_files()
+    for index, output_file in enumerate(_unique_paths(output_files)):
+        try:
+            _write_contest_rows(output_file, rows)
+        except OSError:
+            if index == 0:
+                raise
     return 0
 
 
@@ -106,13 +110,12 @@ def run_contest_batch(input_dir: Path, options: ScanOptions) -> list[dict[str, A
             }
         ]
 
-    targets = sorted(path for path in input_dir.iterdir() if path.is_dir())
-    if not targets and (input_dir / "manifest.json").exists():
-        targets = [input_dir]
+    targets = discover_contest_targets(input_dir)
+    input_root = input_dir.resolve() if input_dir.is_dir() else input_dir.parent.resolve()
 
     rows: list[dict[str, Any]] = []
     for target in targets:
-        skill_id = target.name
+        skill_id = contest_skill_id(target, input_root)
         try:
             result = scan(target, options)
             rows.append(contest_row(skill_id, result))
@@ -129,6 +132,109 @@ def run_contest_batch(input_dir: Path, options: ScanOptions) -> list[dict[str, A
     return rows
 
 
+def discover_contest_targets(input_dir: Path) -> list[Path]:
+    """Find skill package roots without assuming one exact evaluator layout."""
+    if input_dir.is_file():
+        return [input_dir]
+
+    input_dir = input_dir.resolve()
+    if _looks_like_skill_root(input_dir):
+        return [input_dir]
+
+    children = sorted(path for path in input_dir.iterdir() if path.is_dir())
+    direct_roots = [path for path in children if _looks_like_skill_root(path)]
+    if direct_roots:
+        return direct_roots
+
+    nested_roots: list[Path] = []
+    for path in sorted(input_dir.rglob("*")):
+        if not path.is_dir() or not _looks_like_skill_root(path):
+            continue
+        if any(_is_relative_to(path, root) for root in nested_roots):
+            continue
+        nested_roots.append(path)
+    if nested_roots:
+        return nested_roots
+
+    if not children and any(path.is_file() for path in input_dir.iterdir()):
+        return [input_dir]
+
+    return children
+
+
+def contest_skill_id(target: Path, input_root: Path | None = None) -> str:
+    if target.is_file():
+        return target.stem
+
+    if input_root is not None and _is_direct_child(target, input_root):
+        return target.name
+
+    for metadata_name in ("manifest.json", "skill.json"):
+        metadata_path = target / metadata_name
+        value = _metadata_skill_id(metadata_path)
+        if value:
+            return value
+    return target.name
+
+
+def _looks_like_skill_root(path: Path) -> bool:
+    if path.is_file():
+        return True
+    if not path.is_dir():
+        return False
+    root_markers = {
+        "manifest.json",
+        "skill.json",
+        "SKILL.md",
+        "skill.md",
+        "README.md",
+        "readme.md",
+        "AGENTS.md",
+        "agents.md",
+    }
+    return any((path / marker).is_file() for marker in root_markers)
+
+
+def _metadata_skill_id(metadata_path: Path) -> str:
+    if not metadata_path.is_file():
+        return ""
+    try:
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return ""
+
+    if not isinstance(payload, dict):
+        return ""
+    for key in (
+        "skill_id",
+        "skillId",
+        "id",
+        "name",
+        "slug",
+        "identifier",
+        "package",
+    ):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
+
+
+def _is_direct_child(path: Path, parent: Path) -> bool:
+    try:
+        return path.resolve().parent == parent.resolve()
+    except OSError:
+        return False
+
+
 def contest_row(skill_id: str, result: dict[str, Any]) -> dict[str, Any]:
     evidence_items = result.get("evidence", [])
     evidence = "; ".join(
@@ -137,12 +243,16 @@ def contest_row(skill_id: str, result: dict[str, Any]) -> dict[str, Any]:
     )
     if not evidence:
         evidence = "No high-risk evidence found."
+    category = contest_category(str(result.get("primary_category", "AST-10")))
+    verdict = result.get("label", "suspicious")
     return {
         "skill_id": skill_id,
-        "verdict": result.get("label", "suspicious"),
+        "verdict": verdict,
         "confidence": round(float(result.get("confidence", 0.5)), 4),
-        "category": contest_category(str(result.get("primary_category", "AST-10"))),
+        "category": category,
         "evidence": evidence[:2000],
+        "engine_category": "benign" if verdict == "benign" else category.lower(),
+        "evidence_text": evidence[:2000],
     }
 
 
@@ -155,6 +265,42 @@ def contest_category(category: str) -> str:
         if 1 <= number <= 10:
             return f"AST{number:02d}"
     return "AST10"
+
+
+def _default_contest_output_files() -> list[Path]:
+    import os
+
+    output_dir = os.environ.get("SKILLSEC_OUTPUT_DIR")
+    if output_dir:
+        return [Path(output_dir) / "results.jsonl", Path("/output/results.jsonl")]
+    return [Path("/output/results.jsonl")]
+
+
+def _default_contest_input_dir() -> Path:
+    import os
+
+    return Path(os.environ.get("SKILLSEC_INPUT_DIR", "/data/skills"))
+
+
+def _write_contest_rows(output_file: Path, rows: list[dict[str, Any]]) -> None:
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    with output_file.open("w", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def _unique_paths(paths: list[Path | None]) -> list[Path]:
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        if path is None:
+            continue
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(path)
+    return unique
 
 
 def build_dataset_command(argv: list[str]) -> int:

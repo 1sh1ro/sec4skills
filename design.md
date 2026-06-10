@@ -5,6 +5,8 @@ Docker image runs the contest interface:
 
 - Input: `/data/skills/{skill_id}/`
 - Output: `/output/results.jsonl`
+- Compatibility: `SKILLSEC_INPUT_DIR` and `SKILLSEC_OUTPUT_DIR` are also
+  honored when set by the platform runner
 - Runtime network dependency: none
 - LLM/token dependency: none, token usage is `0`
 - Build-time package download dependency: none
@@ -22,7 +24,8 @@ Docker image runs the contest interface:
 5. Apply a compact local evidence-scoring policy trained for high malicious
    recall while preserving deterministic evidence output.
 6. Emit a single Track B row per skill with `verdict`, confidence, primary
-   OWASP AST category, and concise file/line evidence.
+   OWASP AST category, concise file/line evidence, and compatibility aliases
+   `engine_category` and `evidence_text`.
 
 ## Category Mapping
 
@@ -35,7 +38,10 @@ these to the required `AST01` through `AST10` format. Benign findings default to
 The batch runner keeps scanning after per-skill exceptions and reports the
 failed skill as `suspicious` with an error evidence string. The scanner also
 limits file bytes and total file count to avoid unbounded memory or runtime on
-large skill packages.
+large skill packages. Target discovery supports the documented
+`/data/skills/{skill_id}/` batch layout, a single skill mounted directly at the
+input root, and lightly nested extracted packages. For the documented batch
+layout, the directory name remains the authoritative `skill_id`.
 
 ## Docker Image
 
@@ -53,7 +59,7 @@ ghcr.io/1sh1ro/sec4skills:contest
 Bound digest:
 
 ```text
-sha256:4e9a857537fff6604cc74229d0f7fcf5b60e3b98dc6bf8677baf44853a8594c8
+sha256:PENDING_GHCR_DIGEST
 ```
 
 The submission archive is intentionally a small source and metadata package,

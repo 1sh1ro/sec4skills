@@ -374,14 +374,36 @@ def run_static_rules(files: list[FileRecord]) -> list[Evidence]:
 
 
 DOC_RULES = {
+    "browser-profile-access",
+    "credential-store-access",
+    "data-exfiltration",
+    "destructive-filesystem",
+    "doc-high-privilege-automation",
+    "doc-local-history-egress",
+    "doc-remote-bootstrap-required",
+    "excessive-permissions",
+    "obfuscated-payload",
+    "persistence-hook",
+    "prompt-injection-behavior-bias",
+    "prompt-injection-external-callback",
+    "prompt-injection-coercive-workflow",
+    "prompt-injection-forced-exfiltration",
+    "prompt-injection-override",
+    "prompt-injection-secret-leak",
+    "remote-code-pipe",
+    "secret-file-access",
+}
+
+
+DOC_ONLY_RULES = {
     "doc-high-privilege-automation",
     "doc-local-history-egress",
     "doc-remote-bootstrap-required",
     "prompt-injection-behavior-bias",
-    "prompt-injection-external-callback",
-    "prompt-injection-override",
     "prompt-injection-coercive-workflow",
+    "prompt-injection-external-callback",
     "prompt-injection-forced-exfiltration",
+    "prompt-injection-override",
     "prompt-injection-secret-leak",
 }
 
@@ -390,8 +412,8 @@ def _rule_applies(rule: Rule, doc_rule_context: bool, exec_file: bool) -> bool:
     if doc_rule_context:
         return rule.rule_id in DOC_RULES
     if exec_file:
-        return rule.rule_id not in DOC_RULES
-    return rule.rule_id in DOC_RULES
+        return rule.rule_id not in DOC_ONLY_RULES
+    return rule.rule_id in DOC_ONLY_RULES
 
 
 def _line_evidence_for_rule(record: FileRecord, line_no: int, rule: Rule) -> Evidence:

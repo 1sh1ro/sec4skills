@@ -8,7 +8,7 @@ The scanner combines four layers:
 2. Behavioral Integrity Verification: compares declared capabilities in `SKILL.md`, manifests, and README files against behavior found in code and prompts.
 3. Canary sandbox probes: by default, a safe simulation that predicts secret-egress paths; optionally, a short local execution probe for known entrypoints.
 4. Evidence graph output: each hit includes `file:line`, severity, rule id, snippet, and OWASP AST-style category.
-5. RL-tuned evidence scoring: a compact offline policy ranks evidence combinations for F2-oriented recall while preserving the static evidence graph.
+5. RL-tuned evidence scoring: a compact offline policy can rank evidence combinations for F2-oriented recall while preserving the static evidence graph.
 
 ## Quick Start
 
@@ -38,6 +38,7 @@ The Docker image defaults to the required blue-team batch interface:
 - Input: `/data/skills/{skill_id}/`
 - Output: `/output/results.jsonl`
 - One JSON object per line: `skill_id`, `verdict`, `confidence`, `category`, `evidence`
+- Compatibility: also honors `SKILLSEC_INPUT_DIR` and `SKILLSEC_OUTPUT_DIR`, supports single-root and lightly nested skill packages, and emits `engine_category`/`evidence_text` aliases for the platform sample schema.
 
 Local build and smoke run:
 
@@ -77,7 +78,7 @@ Published contest image:
 
 ```text
 ghcr.io/1sh1ro/sec4skills:contest
-sha256:4e9a857537fff6604cc74229d0f7fcf5b60e3b98dc6bf8677baf44853a8594c8
+sha256:PENDING_GHCR_DIGEST
 ```
 
 The repository `dist/sec4skills-track-b-submission.tar.gz` archive follows the
@@ -111,26 +112,15 @@ The curated corpus currently contains 74 samples: 23 benign, 20 suspicious, and 
 
 Do not tune against the full-corpus score alone. `train-rl` now uses a deterministic stratified holdout by default (`--validation-ratio 0.25 --cv-folds 5 --seed 17`) and stores validation metadata in the packaged policy. The full-corpus `eval-dataset` command is useful as a regression check, but it is optimistic because those samples are also the curated development set.
 
-Current packaged policy validation:
+Current full-corpus regression score with the packaged contest defaults:
 
-- Training split: 55 samples
-- Held-out validation split: 19 samples
-- Held-out malicious precision: 1.0
-- Held-out malicious recall: 0.875
-- Held-out malicious F2: 0.8974
-- Held-out false negatives: 1
-- Held-out false positives: 0
-- 5-fold mean malicious F2: 0.9142
-- 5-fold mean malicious recall: 0.9333
-
-Current full-corpus regression score with and without the packaged RL policy:
-
-- Accuracy: 0.9054
+- Accuracy: 0.8514
 - Malicious precision: 0.9394
 - Malicious recall: 1.0
 - Malicious F2: 0.9873
 - False negatives: 0
 - False positives: 2
+- Category accuracy: 0.7451
 
 Use `--no-rl-policy` when precision on known-benign internal tooling matters more than recall. For contest tuning, keep a separate private validation set of real black/white/gray submissions and only promote policy changes that improve held-out F2 without introducing avoidable benign false positives.
 
@@ -149,12 +139,10 @@ The first paper-benchmark pass used:
 - Skill-Inject: local clone of `aisa-group/skill-inject`, first task per injection, generated with its `scripts/build_sandbox.py`.
 - MaliciousAgentSkillsBench: `ProtectSkills/MaliciousAgentSkillsBench` CSVs from Hugging Face; a small sampled subset of GitHub archives was downloaded and only successfully extracted skill directories were evaluated.
 
-Measured SkillMRI results:
+Latest measured SkillMRI results:
 
-- Skill-Inject clean skills: 38 samples, 11 benign, 6 suspicious, 21 malicious false positives; strict FP rate 0.5526.
-- Skill-Inject obvious injections: 36 samples, 31 malicious, 5 suspicious, 0 benign misses; strict recall 0.8611, suspicious-or-worse recall 1.0.
-- Skill-Inject contextual injections: 48 samples, 43 malicious, 5 suspicious, 0 benign misses; strict recall 0.8958, suspicious-or-worse recall 1.0.
-- MaliciousAgentSkillsBench sampled subset: 39 extracted skills from 60 attempted rows. Safe: 16 samples, 15 malicious false positives, 1 suspicious. Suspicious: 14 samples, 10 malicious, 1 suspicious, 3 benign. Malicious: 9 samples, 7 malicious, 1 suspicious, 1 benign; strict recall 0.7778.
+- Skill-Inject generated sandboxes: 122 samples, malicious recall 1.0, malicious F2 0.9767, false negatives 0, false positives 10.
+- MaliciousAgentSkillsBench sampled subset: 39 samples, malicious recall 1.0, malicious F2 0.8824, benign strict malicious false-positive rate 0.0.
 
 These numbers are not directly comparable to Skill-Inject's paper ASR because SkillMRI is doing pre-execution skill detection, not measuring whether an agent follows an injection. They do show a clear engineering target: recall is strong on injected Skill-Inject samples, but precision is poor on realistic clean skills because documentation, examples, plugin metadata, and API/token instructions are currently treated too much like executable malicious behavior.
 

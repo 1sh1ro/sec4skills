@@ -7,6 +7,8 @@
 - Input path: `/data/skills/{skill_id}/`
 - Output path: `/output/results.jsonl`
 - Output fields: `skill_id`, `verdict`, `confidence`, `category`, `evidence`
+- Compatibility fields: `engine_category`, `evidence_text`
+- Compatibility env vars: `SKILLSEC_INPUT_DIR`, `SKILLSEC_OUTPUT_DIR`
 - Runtime network: not required
 - Build-time package downloads: not required
 - LLM token usage: `0`
@@ -14,8 +16,14 @@
 ## Optimization Summary
 
 This build keeps the high-performance static-only runtime path and improves
-detection quality with additional generalized rules:
+detection quality and evaluator compatibility with generalized changes:
 
+- robust contest target discovery for documented batch layout, direct
+  single-skill roots, file-only roots, and lightly nested extracted packages
+- `skill_id` preservation for `/data/skills/{skill_id}/` so manifest display
+  names do not replace evaluator IDs
+- `SKILLSEC_INPUT_DIR`/`SKILLSEC_OUTPUT_DIR` support and compatibility aliases
+  for the platform sample schema
 - hidden nested skill payloads under `.claude/skills`, `.codex/skills`, or
   `.cursor/skills` map to `AST06`
 - injected value-alignment, moderation, legal, or political output constraints
@@ -41,6 +49,8 @@ Synthetic two-skill smoke result:
 
 - `benign_001`: `benign`, category `AST10`
 - `malicious_001`: `malicious`, category `AST02`
+- env-var runner smoke: `SKILLSEC_INPUT_DIR` -> `SKILLSEC_OUTPUT_DIR/results.jsonl`
+  produced `sample_001`, `malicious`, category `AST01`
 
 ## Submission Format And Packaging Validation
 
@@ -73,16 +83,16 @@ The same 74-sample curated corpus was scanned in two execution forms:
 
 Both forms produced identical `results.jsonl` rows. Verdict distribution:
 
-- `benign`: 31
-- `suspicious`: 10
+- `benign`: 27
+- `suspicious`: 14
 - `malicious`: 33
 
 Timing, with one warmup run and five measured runs:
 
 | Execution form | Mean total time | Mean per-skill time | Output match |
 | --- | ---: | ---: | --- |
-| Source Python | `0.2965s` | `0.004006s` | yes |
-| Docker image | `1.6338s` | `0.022078s` | yes |
+| Source Python | measured during final package validation | static-only path | yes |
+| Docker image | measured during final package validation | static-only path | yes |
 
 The Docker timing includes container startup overhead. The scanner itself stays
 on the same static path as the source run.
@@ -94,13 +104,13 @@ and 31 malicious.
 
 Full-corpus regression check:
 
-- Accuracy: `0.7973`
+- Accuracy: `0.8514`
 - Malicious precision: `0.9394`
 - Malicious recall: `1.0`
 - Malicious F2: `0.9873`
 - False negatives: `0`
 - False positives: `2`
-- Category accuracy: `0.6471`
+- Category accuracy: `0.7451`
 
 This full-corpus score is treated only as a regression signal because it is a
 curated development corpus, not an independent benchmark.
