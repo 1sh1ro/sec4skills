@@ -13,24 +13,27 @@ Docker image runs the contest interface:
 
 ## Detection Pipeline
 
-1. Collect skill files with bounded file size and file count limits.
+1. Collect skill files with bounded file size and file count limits, including
+   bounded inspection of small zip/tar/tgz resource archives.
 2. Apply static rules for prompt injection, secret access, unsafe shell
    execution, network egress, persistence hooks, destructive filesystem
-   operations, supply-chain downloads, and obfuscation.
+   operations, supply-chain downloads, model artifact loading, and obfuscation.
 3. Compare declared capabilities from `SKILL.md`, manifests, and README files
    with actual code and prompt behavior.
-4. Run a safe canary simulation to identify secret-egress patterns without
+4. Add package-level dataflow evidence for sensitive sources flowing toward
+   network, shell, dynamic loader, or serialized artifact sinks.
+5. Run a safe canary simulation to identify secret-egress patterns without
    executing untrusted samples by default.
-5. Apply a lightweight semantic classifier trained on skill text/code n-grams.
+6. Apply a lightweight semantic classifier trained on skill text/code n-grams.
    It is a pure-Python linear model stored as JSON, so it adds no runtime
    dependency and only contributes weak evidence when confidence and margin are
    sufficient.
-6. Optionally call an OpenAI-compatible online classifier when explicitly
+7. Optionally call an OpenAI-compatible online classifier when explicitly
    enabled through environment variables. This is intended for local
    experiments and score exploration, not as the default contest path.
-7. Apply a compact local evidence-scoring policy trained for high malicious
+8. Apply a compact local evidence-scoring policy trained for high malicious
    recall while preserving deterministic evidence output.
-8. Emit a single Track B row per skill with `verdict`, confidence, primary
+9. Emit a single Track B row per skill with `verdict`, confidence, primary
    OWASP AST category, concise file/line evidence, and compatibility aliases
    `engine_category` and `evidence_text`.
 
@@ -99,7 +102,7 @@ ghcr.io/1sh1ro/sec4skills:contest
 Bound digest:
 
 ```text
-sha256:aed49ce72fbf51c723a44246fee996c4bdbd8b3b1bc755985c28bbc5d818518b
+sha256:3de4acf409a3a47db447c7498f413e44d2704da26b85e2faccbf80451da7c277
 ```
 
 The submission archive is intentionally a small source and metadata package,

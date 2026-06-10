@@ -6,11 +6,13 @@ The scanner combines four layers:
 
 1. Static rules for prompt injection, secret access, shell execution, network egress, persistence, destructive filesystem operations, supply-chain risk, and obfuscation.
 2. Behavioral Integrity Verification: compares declared capabilities in `SKILL.md`, manifests, and README files against behavior found in code and prompts.
-3. Canary sandbox probes: by default, a safe simulation that predicts secret-egress paths; optionally, a short local execution probe for known entrypoints.
-4. Evidence graph output: each hit includes `file:line`, severity, rule id, snippet, and OWASP AST-style category.
-5. Lightweight semantic ML: a pure-Python n-gram linear classifier packaged as a small JSON model adds weak semantic evidence without Torch/sklearn/transformers.
-6. Optional online LLM classifier: an OpenAI-compatible judge can be enabled for local experiments, but it is off by default for contest Docker runs.
-7. RL-tuned evidence scoring: a compact offline policy can rank evidence combinations for F2-oriented recall while preserving the static evidence graph.
+3. Bounded archive inspection for zip/tar/tgz resources, so hidden payload files inside bundled assets are still scanned.
+4. Package-level dataflow evidence for sensitive sources flowing toward network, shell, dynamic loader, or serialized artifact sinks.
+5. Canary sandbox probes: by default, a safe simulation that predicts secret-egress paths; optionally, a short local execution probe for known entrypoints.
+6. Evidence graph output: each hit includes `file:line`, severity, rule id, snippet, and OWASP AST-style category.
+7. Lightweight semantic ML: a pure-Python n-gram linear classifier packaged as a small JSON model adds weak semantic evidence without Torch/sklearn/transformers.
+8. Optional online LLM classifier: an OpenAI-compatible judge can be enabled for local experiments, but it is off by default for contest Docker runs.
+9. RL-tuned evidence scoring: a compact offline policy can rank evidence combinations for F2-oriented recall while preserving the static evidence graph.
 
 ## Quick Start
 
@@ -81,7 +83,7 @@ Published contest image:
 
 ```text
 ghcr.io/1sh1ro/sec4skills:contest
-sha256:aed49ce72fbf51c723a44246fee996c4bdbd8b3b1bc755985c28bbc5d818518b
+sha256:3de4acf409a3a47db447c7498f413e44d2704da26b85e2faccbf80451da7c277
 ```
 
 The repository `dist/sec4skills-track-b-submission.tar.gz` archive follows the
@@ -117,13 +119,13 @@ Do not tune against the full-corpus score alone. `train-rl` now uses a determini
 
 Current full-corpus regression score with the packaged contest defaults:
 
-- Accuracy: 0.8378
-- Malicious precision: 0.9118
+- Accuracy: 0.8649
+- Malicious precision: 0.8611
 - Malicious recall: 1.0
-- Malicious F2: 0.9810
+- Malicious F2: 0.9687
 - False negatives: 0
-- False positives: 3
-- Category accuracy: 0.8039
+- False positives: 5
+- Category accuracy: 0.8627
 
 The v0.1.5 contest build also runs a separate 14-sample stress set that is not
 part of the curated development corpus. It covers pure-document exfiltration,

@@ -32,6 +32,10 @@ detection quality and evaluator compatibility with generalized changes:
   credential theft, persistence, and destructive operations map to `AST01`
 - remote bootstrap, package lifecycle downloads, and remote code execution
   setup paths map to `AST02`
+- bounded zip/tar/tgz archive inspection finds hidden payload files without
+  unbounded extraction
+- package-level dataflow links sensitive sources to network, shell, dynamic
+  loader, or serialized artifact sinks
 - broad filesystem/network/secret/shell permission manifests map to `AST03`
 - obfuscated metadata and hidden non-skill files map to `AST04`
 - unsafe YAML/object/prototype deserialization markers map to `AST05`
@@ -118,13 +122,13 @@ and 31 malicious.
 
 Full-corpus regression check:
 
-- Accuracy: `0.8378`
-- Malicious precision: `0.9118`
+- Accuracy: `0.8649`
+- Malicious precision: `0.8611`
 - Malicious recall: `1.0`
-- Malicious F2: `0.9810`
+- Malicious F2: `0.9687`
 - False negatives: `0`
-- False positives: `3`
-- Category accuracy: `0.8039`
+- False positives: `5`
+- Category accuracy: `0.8627`
 
 Semantic classifier holdout check:
 
