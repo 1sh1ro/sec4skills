@@ -254,6 +254,8 @@ def extract_features(evidence: list[Evidence], score: int) -> dict[str, float]:
     features["combo:secret_egress"] = _has_any(evidence, {"secret-file-access", "data-exfiltration", "contract-secret-egress-combo"})
     features["combo:canary"] = _has_prefix(evidence, "canary-")
     features["combo:contract_mismatch"] = _has_prefix(evidence, "contract-undeclared-")
+    features["combo:triage"] = _has_prefix(evidence, "triage-")
+    features["combo:killchain"] = _has_prefix(evidence, "killchain-")
     features["combo:benign_low_evidence"] = 1.0 if score < 18 and len(evidence) <= 2 else 0.0
     return features
 

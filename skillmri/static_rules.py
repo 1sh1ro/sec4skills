@@ -655,7 +655,19 @@ def _package_graph_evidence(files: list[FileRecord], evidence: list[Evidence]) -
     graph: list[Evidence] = []
     package_text = _package_text(files)
     package_lowered = package_text.lower()
-    if _has_sensitive_source(package_lowered) and _has_network_sink(package_lowered):
+    low_risk_service_credentials = "service-api-credential" in rule_ids and not (
+        rule_ids
+        & {
+            "agent-state-access",
+            "credential-store-access",
+            "data-exfiltration",
+            "doc-local-history-egress",
+            "doc-telemetry-exfiltration",
+            "prompt-injection-forced-exfiltration",
+            "secret-file-access",
+        }
+    )
+    if _has_sensitive_source(package_lowered) and _has_network_sink(package_lowered) and not low_risk_service_credentials:
         source = _first_rule_evidence(evidence, "secret-file-access") or _first_rule_evidence(evidence, "unsafe-network")
         graph.append(
             Evidence(

@@ -77,6 +77,10 @@ def risk_score(evidence: list[Evidence]) -> int:
         raw -= 10
     if _benign_small_base64_utility(evidence):
         raw -= 24
+    if _gray_fixed_shell_probe(evidence):
+        raw -= 16
+    if _gray_browser_bookmark_probe(evidence):
+        raw -= 12
     return min(100, max(0, int(round(raw))))
 
 
@@ -229,6 +233,37 @@ def _benign_small_base64_utility(evidence: list[Evidence]) -> bool:
     return any("base64" in item.snippet.lower() for item in evidence)
 
 
+def _gray_fixed_shell_probe(evidence: list[Evidence]) -> bool:
+    rule_ids = {item.rule_id for item in evidence}
+    if rule_ids & {
+        "canary-simulated-shell-secret",
+        "command-injection",
+        "data-exfiltration",
+        "killchain-agent-hijack",
+        "killchain-data-theft",
+        "remote-code-pipe",
+        "reverse-shell",
+        "secret-file-access",
+    }:
+        return False
+    shell_hits = [item for item in evidence if item.rule_id == "dangerous-shell-exec"]
+    if not shell_hits:
+        return False
+    snippets = " ".join(item.snippet.lower() for item in shell_hits)
+    return bool(re.search(r"\b(du -sh|git status|git log|pytest|compileall|gofmt|ls\s|df -h)\b", snippets))
+
+
+def _gray_browser_bookmark_probe(evidence: list[Evidence]) -> bool:
+    rule_ids = {item.rule_id for item in evidence}
+    if rule_ids & {"credential-store-access", "data-exfiltration", "graph-sensitive-source-network-sink", "killchain-data-theft"}:
+        return False
+    browser_hits = [item for item in evidence if item.rule_id == "browser-profile-access"]
+    if not browser_hits:
+        return False
+    snippets = " ".join(item.snippet.lower() for item in browser_hits)
+    return "bookmarks" in snippets and "login data" not in snippets and "cookies" not in snippets
+
+
 def _category_priority(category: str, evidence: list[Evidence]) -> float:
     rule_ids = {item.rule_id for item in evidence if item.category == category}
     if category == "AST-01":
@@ -239,6 +274,8 @@ def _category_priority(category: str, evidence: list[Evidence]) -> float:
             "destructive-filesystem",
             "doc-local-history-egress",
             "hidden-nested-skill-payload",
+            "killchain-agent-hijack",
+            "killchain-data-theft",
             "persistence-hook",
             "prompt-injection-coercive-workflow",
             "prompt-injection-external-callback",
@@ -246,12 +283,15 @@ def _category_priority(category: str, evidence: list[Evidence]) -> float:
             "prompt-injection-override",
             "prompt-injection-secret-leak",
             "secret-file-access",
+            "triage-covert-behavior",
+            "triage-cross-file-inconsistent",
+            "triage-intent-mismatch",
         }:
             return 20.0
         return 12.0
-    if category == "AST-02" and rule_ids & {"doc-remote-bootstrap-required", "graph-remote-exec-chain", "graph-untrusted-content-loader", "model-artifact-risk", "remote-code-pipe", "suspicious-package-lifecycle"}:
+    if category == "AST-02" and rule_ids & {"doc-remote-bootstrap-required", "graph-remote-exec-chain", "graph-untrusted-content-loader", "killchain-supply-chain-exec", "model-artifact-risk", "remote-code-pipe", "suspicious-package-lifecycle"}:
         return 17.0
-    if category == "AST-03" and rule_ids & {"doc-high-privilege-automation", "excessive-permissions", "contract-undeclared-secrets", "workspace-sweep"}:
+    if category == "AST-03" and rule_ids & {"doc-high-privilege-automation", "excessive-permissions", "contract-undeclared-secrets", "triage-permission-unjustified", "workspace-sweep"}:
         return 14.0
     if category == "AST-04" and rule_ids & {"browser-profile-access", "hidden-files", "high-entropy-blob", "insecure-metadata", "obfuscated-payload", "unsafe-deserialization"}:
         return 10.0
@@ -261,7 +301,7 @@ def _category_priority(category: str, evidence: list[Evidence]) -> float:
         return 7.0
     if category == "AST-07" and "update-drift-risk" in rule_ids:
         return 16.0
-    if category == "AST-08" and rule_ids & {"graph-scanner-evasion-flow", "scanner-evasion"}:
+    if category == "AST-08" and rule_ids & {"graph-scanner-evasion-flow", "killchain-evasion", "scanner-evasion", "triage-covert-behavior"}:
         return 16.0
     if category == "AST-09" and "governance-bypass" in rule_ids:
         return 16.0
@@ -286,6 +326,9 @@ def _has_decisive_malicious_evidence(evidence: list[Evidence]) -> bool:
         "graph-untrusted-content-loader",
         "governance-bypass",
         "hidden-nested-skill-payload",
+        "killchain-agent-hijack",
+        "killchain-data-theft",
+        "killchain-supply-chain-exec",
         "persistence-hook",
         "prompt-injection-coercive-workflow",
         "prompt-injection-external-callback",
@@ -297,6 +340,8 @@ def _has_decisive_malicious_evidence(evidence: list[Evidence]) -> bool:
         "sandbox-canary-leak-output",
         "scanner-evasion",
         "semantic-ml-malicious",
+        "triage-cross-file-inconsistent",
+        "triage-intent-mismatch",
         "update-drift-risk",
     }
     return any(item.rule_id in decisive_rules for item in evidence)

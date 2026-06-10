@@ -5,7 +5,7 @@ from typing import Any
 
 from .collector import collect_files
 from .contract import audit_contract
-from .features import declaration_text, infer_actual_capabilities, infer_declared_capabilities, infer_negative_declarations
+from .features import declaration_text, infer_actual_capabilities, infer_declared_capabilities, infer_detailed_capabilities, infer_negative_declarations
 from .online_llm import online_llm_evidence
 from .rl_policy import apply_policy, load_policy
 from .sandbox import run_canary_sandbox
@@ -13,6 +13,7 @@ from .schema import ScanContext, ScanOptions
 from .scorer import build_result
 from .semantic_model import load_semantic_model, semantic_evidence
 from .static_rules import run_static_rules
+from .triage import run_offline_triage
 
 
 def scan(target: Path, options: ScanOptions) -> dict[str, Any]:
@@ -27,6 +28,7 @@ def scan(target: Path, options: ScanOptions) -> dict[str, Any]:
         declared_capabilities=infer_declared_capabilities(declared_text),
         negative_declarations=infer_negative_declarations(declared_text),
         actual_capabilities=infer_actual_capabilities(files),
+        detailed_actual_capabilities=infer_detailed_capabilities(files),
         stats={
             "files_scanned": len(files),
             "binary_files": sum(1 for record in files if record.is_binary),
@@ -36,6 +38,7 @@ def scan(target: Path, options: ScanOptions) -> dict[str, Any]:
     ctx.evidence.extend(run_static_rules(files))
     ctx.evidence.extend(audit_contract(ctx))
     ctx.evidence.extend(run_canary_sandbox(ctx, options.sandbox))
+    ctx.evidence.extend(run_offline_triage(ctx))
     if options.use_semantic_model:
         semantic_hits, semantic_stats = semantic_evidence(files, load_semantic_model(options.semantic_model_path))
         ctx.evidence.extend(semantic_hits)
@@ -48,6 +51,7 @@ def scan(target: Path, options: ScanOptions) -> dict[str, Any]:
     ctx.stats["declared_capabilities"] = sorted(ctx.declared_capabilities)
     ctx.stats["negative_declarations"] = sorted(ctx.negative_declarations)
     ctx.stats["actual_capabilities"] = sorted(ctx.actual_capabilities)
+    ctx.stats["detailed_actual_capabilities"] = sorted(ctx.detailed_actual_capabilities)
     result = build_result(str(target), ctx.evidence, ctx.stats)
     if options.use_policy:
         return apply_policy(result, load_policy(options.policy_path))

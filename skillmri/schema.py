@@ -47,6 +47,7 @@ class ScanContext:
     declared_capabilities: set[str] = field(default_factory=set)
     negative_declarations: set[str] = field(default_factory=set)
     actual_capabilities: set[str] = field(default_factory=set)
+    detailed_actual_capabilities: set[str] = field(default_factory=set)
     evidence: list[Evidence] = field(default_factory=list)
     stats: dict[str, Any] = field(default_factory=dict)
 

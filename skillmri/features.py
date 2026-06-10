@@ -38,6 +38,71 @@ CAPABILITY_PATTERNS: dict[str, list[re.Pattern[str]]] = {
 }
 
 
+DETAILED_CAPABILITY_PATTERNS: dict[str, list[re.Pattern[str]]] = {
+    "network_egress": CAPABILITY_PATTERNS["network"],
+    "remote_fetch": [
+        re.compile(r"\b(curl|wget|requests\.get|httpx\.get|urllib\.request|fetch\(|axios\.get)\b", re.I),
+        re.compile(r"\b(git clone|git fetch|git pull|pip install|npm install|npx|pnpm add|yarn add)\b.{0,120}\b(https?|git\+|latest|main|master|head)\b", re.I),
+    ],
+    "network_post": [
+        re.compile(r"\b(requests\.post|httpx\.post|urllib\.request\.urlopen|fetch\(|axios\.post|curl\s+-X\s*POST|curl\s+--data)\b", re.I),
+        re.compile(r"\b(webhook|collector|requestbin|pastebin|upload|telemetry|analytics)\b", re.I),
+    ],
+    "read_workspace": CAPABILITY_PATTERNS["filesystem"],
+    "write_workspace": [
+        re.compile(r"\b(write_text|write_bytes|open\([^)]*['\"]w|writeFileSync|Path\([^)]*\)\.write|fs\.write)\b", re.I),
+        re.compile(r">\s*[\w./~$-]+", re.I),
+    ],
+    "delete_files": CAPABILITY_PATTERNS["delete"],
+    "read_secret": CAPABILITY_PATTERNS["secrets"],
+    "read_agent_state": [
+        re.compile(r"(\.claude|\.codex|\.cursor).{0,120}\b(history|auth|config|settings|skills|agents|session|token|credentials?)\b", re.I),
+        re.compile(r"\b(conversation|chat|transcript|messages?|prompt history).{0,120}\b(read_text|open\(|send|upload|webhook|collector)\b", re.I),
+    ],
+    "read_browser_profile": [
+        re.compile(r"(\.config/google-chrome|\.mozilla/firefox|Application Support/(Google/Chrome|Firefox))", re.I),
+        re.compile(r"(Login Data|Cookies|Local State|Bookmarks|History)", re.I),
+    ],
+    "shell_exec": CAPABILITY_PATTERNS["shell"],
+    "dynamic_exec": [
+        re.compile(r"\b(eval\(|exec\(|Function\s*\(|vm\.runIn|import\s*\(|pickle\.load|joblib\.load|torch\.load|yaml\.load)\b", re.I),
+    ],
+    "package_install": [
+        re.compile(r"\b(pip install|npm install|pnpm add|yarn add|npx|postinstall|preinstall|prepare)\b", re.I),
+    ],
+    "persistence_hook": CAPABILITY_PATTERNS["persistence"],
+    "obfuscation": CAPABILITY_PATTERNS["obfuscation"],
+    "scanner_evasion": [
+        re.compile(r"\b(scanner|scan|detector|sandbox|ctf|judge|evaluation|/.dockerenv|docker|container|ci)\b.{0,160}\b(skip|return|benign|sleep|do nothing|bypass|evade)\b", re.I),
+        re.compile(r"\b(skip|return|benign|sleep|do nothing|bypass|evade)\b.{0,160}\b(scanner|scan|detector|sandbox|ctf|judge|evaluation|/.dockerenv|docker|container|ci)\b", re.I),
+    ],
+    "governance_bypass": [
+        re.compile(r"\b(bypass|skip|disable|ignore).{0,100}\b(approval|human review|policy|audit|governance|permission prompt|security gate)\b", re.I),
+        re.compile(r"\b(force merge|push directly|merge without review|admin override|silent approval)\b", re.I),
+    ],
+}
+
+
+DETAILED_TO_COARSE = {
+    "network_egress": "network",
+    "remote_fetch": "network",
+    "network_post": "network",
+    "read_workspace": "filesystem",
+    "write_workspace": "filesystem",
+    "delete_files": "delete",
+    "read_secret": "secrets",
+    "read_agent_state": "secrets",
+    "read_browser_profile": "secrets",
+    "shell_exec": "shell",
+    "dynamic_exec": "shell",
+    "package_install": "persistence",
+    "persistence_hook": "persistence",
+    "obfuscation": "obfuscation",
+    "scanner_evasion": "obfuscation",
+    "governance_bypass": "shell",
+}
+
+
 DECLARED_ALLOW_PATTERNS: dict[str, list[re.Pattern[str]]] = {
     "network": [
         re.compile(r"\b(api|http|https|web|url|download|upload|network|request|fetch|crawl|scrape)\b", re.I),
@@ -186,6 +251,22 @@ def infer_actual_capabilities(files: Iterable[FileRecord]) -> set[str]:
             if not _metadata_url_line(line)
         )
         for capability, patterns in CAPABILITY_PATTERNS.items():
+            if any(pattern.search(capability_text) for pattern in patterns):
+                capabilities.add(capability)
+    return capabilities
+
+
+def infer_detailed_capabilities(files: Iterable[FileRecord]) -> set[str]:
+    capabilities: set[str] = set()
+    for record in files:
+        if record.is_binary or not is_execution_relevant_file(record):
+            continue
+        capability_text = "\n".join(
+            line
+            for line in record.lines
+            if not _metadata_url_line(line)
+        )
+        for capability, patterns in DETAILED_CAPABILITY_PATTERNS.items():
             if any(pattern.search(capability_text) for pattern in patterns):
                 capabilities.add(capability)
     return capabilities
