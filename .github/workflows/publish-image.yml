@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
     paths:
+      - .github/workflows/publish-image.yml
       - Dockerfile
       - engine/**
       - pyproject.toml
@@ -28,11 +29,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/sec4skills:latest
-            ghcr.io/${{ github.repository_owner }}/sec4skills:contest
+      - name: Build image
+        run: |
+          docker build \
+            -t ghcr.io/${{ github.repository_owner }}/sec4skills:latest \
+            -t ghcr.io/${{ github.repository_owner }}/sec4skills:contest \
+            .
+
+      - name: Push image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/sec4skills:latest
+          docker push ghcr.io/${{ github.repository_owner }}/sec4skills:contest
