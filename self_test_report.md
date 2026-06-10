@@ -98,8 +98,9 @@ Timing, with one warmup run and five measured runs:
 
 | Execution form | Mean total time | Mean per-skill time | Output match |
 | --- | ---: | ---: | --- |
-| Source Python | measured during final package validation | static-only path | yes |
-| Docker image | measured during final package validation | static-only path | yes |
+| Source Python | `0.3276s` | `0.00443s` | yes |
+| Docker image from final package | `1.8891s` | `0.02553s` | yes |
+| Published GHCR Docker image | `1.7608s` | `0.02379s` | yes |
 
 The Docker timing includes container startup overhead. The scanner itself stays
 on the same static path as the source run.
