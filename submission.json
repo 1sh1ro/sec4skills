@@ -4,7 +4,7 @@
   "team_id": "1sh1ro",
   "engine_name": "SkillMRI",
   "engine_version": "0.1.10",
-  "image_digest": "sha256:4b19292bb341f423ea574312da6e72bde23a810274fce008b298fbb0b5e78425",
+  "image_digest": "sha256:fa74c4b7451a1f8e244448b2dd71513f801d45f5f509d2cdbd31860a104917b5",
   "design_ref": "design.md",
   "self_test_report_ref": "self_test_report.md",
   "results_schema": "results.example.jsonl"
