@@ -121,22 +121,22 @@ Do not tune against the full-corpus score alone. `train-rl` now uses a determini
 
 Current full-corpus regression score with the packaged contest defaults:
 
-- Accuracy: 0.8514
-- Malicious precision: 0.8611
+- Accuracy: 0.8649
+- Malicious precision: 0.8857
 - Malicious recall: 1.0
-- Malicious F2: 0.9687
+- Malicious F2: 0.9748
 - False negatives: 0
-- False positives: 5
-- Category accuracy: 0.8627
+- False positives: 4
+- Category accuracy: 0.8824
 
 Current contest JSONL distribution on the same corpus after the high-recall
 output strategy:
 
-- `benign`: 13
-- `suspicious`: 25
-- `malicious`: 36
+- `benign`: 18
+- `suspicious`: 21
+- `malicious`: 35
 
-The v0.1.5 contest build also runs a separate 14-sample stress set that is not
+The contest build also runs a separate 14-sample stress set that is not
 part of the curated development corpus. It covers pure-document exfiltration,
 unsafe YAML tags, package lifecycle bootstrap, broad permission manifests,
 hidden nested skills, reverse shell patterns, browser credential access, and
@@ -184,10 +184,10 @@ The first paper-benchmark pass used:
 
 Latest measured SkillMRI results:
 
-- Skill-Inject generated sandboxes: 122 samples, malicious recall 1.0, malicious F2 0.9767, false negatives 0, false positives 10.
-- MaliciousAgentSkillsBench sampled subset: 39 samples, malicious recall 1.0, malicious F2 0.8824, benign strict malicious false-positive rate 0.0.
+- Skill-Inject generated sandboxes: 122 samples, malicious recall 1.0, malicious F2 0.9767, false negatives 0, false positives 10 in the baseline external pass.
+- MaliciousAgentSkillsBench sampled subset after v0.1.10 benchmark-driven calibration: 39 samples, malicious recall 1.0, malicious F2 0.8182, benign strict malicious false-positive rate 0.0, and benign non-benign rate 0.0. The previous v0.1.9 pass on the same subset had benign strict malicious false-positive rate 0.8125, and the first v0.1.10 calibration pass had 0.3125.
 
-These numbers are not directly comparable to Skill-Inject's paper ASR because SkillMRI is doing pre-execution skill detection, not measuring whether an agent follows an injection. They do show a clear engineering target: recall is strong on injected Skill-Inject samples, but precision is poor on realistic clean skills because documentation, examples, plugin metadata, and API/token instructions are currently treated too much like executable malicious behavior.
+These numbers are not directly comparable to Skill-Inject's paper ASR because SkillMRI is doing pre-execution skill detection, not measuring whether an agent follows an injection. They show the current engineering target: keep recall strong while using real clean-skill controls to prevent documentation, examples, plugin metadata, and API/token setup instructions from becoming synthetic malicious evidence.
 
 ## Output Schema
 

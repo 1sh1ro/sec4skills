@@ -695,3 +695,64 @@ def test_benign_declared_api_client_does_not_get_triage_escalation(tmp_path: Pat
 
     assert result["label"] == "benign"
     assert not any(item["rule_id"].startswith("triage-") or item["rule_id"].startswith("killchain-") for item in result["evidence"])
+
+
+def test_skill_local_env_path_is_not_agent_state_theft(tmp_path: Path) -> None:
+    skill = tmp_path / "jira-auth"
+    scripts = skill / "scripts"
+    scripts.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(
+        (
+            "---\nname: jira-auth\n"
+            "description: Authenticate with Jira Cloud REST API using API tokens.\n---\n"
+            "Create a `.env` file in `.claude/skills/jira/.env` with JIRA_EMAIL, "
+            "JIRA_API_TOKEN, and JIRA_BASE_URL. Test the connection with scripts/test.py.\n"
+        ),
+        encoding="utf-8",
+    )
+    (scripts / "test.py").write_text(
+        (
+            "import os\n"
+            "from urllib.request import Request, urlopen\n"
+            "JIRA_EMAIL = os.environ.get('JIRA_EMAIL')\n"
+            "JIRA_API_TOKEN = os.environ.get('JIRA_API_TOKEN')\n"
+            "JIRA_BASE_URL = os.environ.get('JIRA_BASE_URL')\n"
+            "if not all([JIRA_EMAIL, JIRA_API_TOKEN, JIRA_BASE_URL]):\n"
+            "    print('Set these in .claude/skills/jira/.env or export manually')\n"
+            "req = Request(f'{JIRA_BASE_URL}/rest/api/3/myself')\n"
+            "print(urlopen(req).status)\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = scan(skill, ScanOptions(sandbox="simulate", use_policy=False))
+
+    assert result["label"] == "benign"
+    assert not any(item["rule_id"] in {"agent-state-access", "graph-sensitive-source-network-sink", "killchain-data-theft"} for item in result["evidence"])
+
+
+def test_prompt_engineering_tutorial_does_not_trigger_scanner_evasion(tmp_path: Path) -> None:
+    skill = tmp_path / "prompt-engineering-patterns"
+    refs = skill / "references"
+    refs.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(
+        (
+            "---\nname: prompt-engineering-patterns\n"
+            "description: Prompt engineering reference patterns and evaluation guidance.\n---\n"
+            "Use this skill to design prompts, benchmark responses, and set up evaluation pipelines.\n"
+        ),
+        encoding="utf-8",
+    )
+    (refs / "chain-of-thought.md").write_text(
+        (
+            "# Chain of Thought\n"
+            "Show all work: don't skip steps, even obvious ones.\n"
+            "Benchmark datasets can be used for CoT evaluation.\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = scan(skill, ScanOptions(sandbox="simulate", use_policy=False))
+
+    assert result["label"] == "benign"
+    assert not any(item["rule_id"] in {"graph-scanner-evasion-flow", "triage-covert-behavior", "killchain-evasion"} for item in result["evidence"])

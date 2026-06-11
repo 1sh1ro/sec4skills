@@ -390,7 +390,7 @@ RULES: tuple[Rule, ...] = (
         "Code references browser, git, cloud, or OS credential stores.",
         (
             re.compile(r"(Login Data|Cookies|Local State|keychain|keyring|Credential Manager)", re.I),
-            re.compile(r"(\.docker/config\.json|\.kube/config|\.azure|\.gcloud|\.config/gh|git-credentials)", re.I),
+            re.compile(r"(\.docker/config\.json|\.kube/config|\.azure|\.gcloud|\.config/gh(?:/|$)|git-credentials)", re.I),
         ),
         1.7,
     ),
@@ -559,8 +559,48 @@ def _rule_applies(rule: Rule, doc_rule_context: bool, exec_file: bool) -> bool:
 
 
 def _line_evidence_for_rule(record: FileRecord, line_no: int, rule: Rule) -> Evidence:
+    line = record.lines[line_no - 1] if 1 <= line_no <= len(record.lines) else ""
+    if rule.rule_id == "dangerous-shell-exec" and _looks_like_safe_local_cli_invocation(line, record.text):
+        return line_evidence(
+            record,
+            line_no,
+            "Code invokes a fixed local CLI command without shell interpolation.",
+            "AST-06",
+            "low",
+            "local-cli-exec",
+            0.25,
+        )
+    if rule.rule_id == "agent-state-access" and _looks_like_user_story_text(line):
+        return line_evidence(
+            record,
+            line_no,
+            "Text mentions chat or messages in product/user-story copy, not local agent state access.",
+            "AST-10",
+            "info",
+            "contextual-auth-copy",
+            0.1,
+        )
+    if rule.rule_id in {"agent-state-access", "secret-file-access"} and _looks_like_skill_config_reference(line):
+        return line_evidence(
+            record,
+            line_no,
+            "Line references the current skill's own configuration or documentation path.",
+            "AST-04",
+            "info",
+            "skill-config-reference",
+            0.1,
+        )
+    if rule.rule_id in {"agent-state-access", "secret-file-access", "credential-store-access"} and _looks_like_tooling_reference(line, record.text):
+        return line_evidence(
+            record,
+            line_no,
+            "Documentation references agent/tool configuration or API key setup without reading or transmitting secrets.",
+            "AST-04",
+            "info",
+            "tooling-config-reference",
+            0.1,
+        )
     if rule.rule_id == "secret-file-access":
-        line = record.lines[line_no - 1] if 1 <= line_no <= len(record.lines) else ""
         if _looks_like_secret_linter_fixture(line, record.text):
             return line_evidence(
                 record,
@@ -582,7 +622,6 @@ def _line_evidence_for_rule(record: FileRecord, line_no: int, rule: Rule) -> Evi
                 0.25,
             )
     if rule.rule_id == "browser-profile-access":
-        line = record.lines[line_no - 1] if 1 <= line_no <= len(record.lines) else ""
         if _looks_like_user_story_text(line):
             return line_evidence(
                 record,
@@ -655,19 +694,8 @@ def _package_graph_evidence(files: list[FileRecord], evidence: list[Evidence]) -
     graph: list[Evidence] = []
     package_text = _package_text(files)
     package_lowered = package_text.lower()
-    low_risk_service_credentials = "service-api-credential" in rule_ids and not (
-        rule_ids
-        & {
-            "agent-state-access",
-            "credential-store-access",
-            "data-exfiltration",
-            "doc-local-history-egress",
-            "doc-telemetry-exfiltration",
-            "prompt-injection-forced-exfiltration",
-            "secret-file-access",
-        }
-    )
-    if _has_sensitive_source(package_lowered) and _has_network_sink(package_lowered) and not low_risk_service_credentials:
+    concrete_sensitive_source = _has_concrete_sensitive_source(evidence)
+    if concrete_sensitive_source and _has_network_sink(package_lowered) and not _benign_service_api_flow(evidence):
         source = _first_rule_evidence(evidence, "secret-file-access") or _first_rule_evidence(evidence, "unsafe-network")
         graph.append(
             Evidence(
@@ -681,7 +709,7 @@ def _package_graph_evidence(files: list[FileRecord], evidence: list[Evidence]) -
                 weight=1.5,
             )
         )
-    if _has_sensitive_source(package_lowered) and _has_shell_sink(package_lowered):
+    if concrete_sensitive_source and _has_shell_sink(package_lowered) and not _benign_service_api_flow(evidence):
         source = _first_rule_evidence(evidence, "secret-file-access") or _first_rule_evidence(evidence, "dangerous-shell-exec")
         graph.append(
             Evidence(
@@ -695,7 +723,7 @@ def _package_graph_evidence(files: list[FileRecord], evidence: list[Evidence]) -
                 weight=1.1,
             )
         )
-    if _has_dynamic_load_sink(package_lowered) and _has_untrusted_content_source(package_lowered):
+    if _has_remote_content_execution_flow(files):
         source = _first_rule_evidence(evidence, "remote-code-pipe") or _first_rule_evidence(evidence, "model-artifact-risk")
         graph.append(
             Evidence(
@@ -806,6 +834,40 @@ def _has_sensitive_source(text: str) -> bool:
     )
 
 
+def _has_concrete_sensitive_source(evidence: list[Evidence]) -> bool:
+    risky_rules = {
+        "agent-state-access",
+        "browser-profile-access",
+        "credential-store-access",
+        "data-exfiltration",
+        "doc-local-history-egress",
+        "doc-telemetry-exfiltration",
+        "prompt-injection-forced-exfiltration",
+        "secret-file-access",
+    }
+    return any(item.rule_id in risky_rules for item in evidence)
+
+
+def _benign_service_api_flow(evidence: list[Evidence]) -> bool:
+    rule_ids = {item.rule_id for item in evidence}
+    if "service-api-credential" not in rule_ids:
+        return False
+    decisive_rules = {
+        "browser-profile-access",
+        "credential-store-access",
+        "data-exfiltration",
+        "doc-local-history-egress",
+        "doc-telemetry-exfiltration",
+        "prompt-injection-forced-exfiltration",
+    }
+    if rule_ids & decisive_rules:
+        return False
+    sensitive_hits = [item for item in evidence if item.rule_id in {"agent-state-access", "secret-file-access"}]
+    if not sensitive_hits:
+        return True
+    return all(_looks_like_skill_config_reference(item.snippet) or _looks_like_service_api_credential(item.snippet, "") for item in sensitive_hits)
+
+
 def _has_network_sink(text: str) -> bool:
     return bool(re.search(r"\b(requests\.(?:post|put)|httpx\.(?:post|put)|urlopen|fetch\(|axios\.(?:post|put)|curl\s+-|curl\s|wget\s|webhook|collector|requestbin|pastebin)\b|https?://", text, re.I))
 
@@ -822,11 +884,50 @@ def _has_untrusted_content_source(text: str) -> bool:
     return bool(re.search(r"\b(requests\.|httpx\.|urllib\.request|fetch\(|axios\.|curl\s|wget\s|https?://|\.pkl\b|\.pickle\b|\.joblib\b|\.pt\b|\.pth\b|\.onnx\b|\.safetensors\b|base64\.b64decode|atob\()\b", text, re.I))
 
 
+def _has_remote_content_execution_flow(files: list[FileRecord]) -> bool:
+    """Detect actual remote content flowing into execution, not ordinary API clients."""
+    for record in files:
+        if record.is_binary or not is_execution_relevant_file(record):
+            continue
+        text = record.text.lower()
+        if re.search(r"\b(curl|wget)\b.{0,160}\|\s*(bash|sh|python|node|ruby|perl)", text, re.I | re.S):
+            return True
+        if re.search(
+            r"\b(requests\.get|httpx\.get|urllib\.request|urlopen|fetch\(|axios\.get)\b.{0,260}\b(eval\(|exec\(|function\s*\(|vm\.runin|import\s*\()\b",
+            text,
+            re.I | re.S,
+        ):
+            return True
+        if re.search(
+            r"\b(eval\(|exec\(|function\s*\(|vm\.runin|import\s*\()\b.{0,260}\b(response|resp|res\.text|r\.text|r\.data|payload|remote|download)\b",
+            text,
+            re.I | re.S,
+        ) and re.search(r"\b(requests\.get|httpx\.get|urllib\.request|urlopen|fetch\(|axios\.get|https?://)\b", text, re.I):
+            return True
+        if re.search(r"\b(pip install|npm install|npx|pnpm add|yarn add)\b.{0,160}\b(https?|git\+|latest|main|master|head)\b", text, re.I):
+            return True
+        if re.search(r"\b(pickle\.load|joblib\.load|torch\.load|keras\.models\.load_model|yaml\.load)\b", text, re.I) and re.search(
+            r"\b(requests\.|httpx\.|urllib\.request|urlopen|fetch\(|axios\.|https?://|\.pkl\b|\.pickle\b|\.joblib\b|\.pt\b|\.pth\b|\.onnx\b|\.safetensors\b)\b",
+            text,
+            re.I,
+        ):
+            return True
+    return False
+
+
 def _has_scanner_evasion_flow(text: str) -> bool:
-    environment_probe = re.search(r"\b(scanner|sandbox|ctf|judge|evaluation|/.dockerenv|docker|container|ci)\b", text, re.I)
-    behavior_change = re.search(r"\b(benign|skip|return|do nothing|sleep|time\.sleep|settimeout|delay|defer)\b", text, re.I)
-    conditional = re.search(r"\b(if|when|unless|case)\b", text, re.I)
-    return bool(environment_probe and behavior_change and conditional)
+    return bool(
+        re.search(
+            r"\b(if|when|unless|case)\b.{0,160}\b(scanner|sandbox|ctf|judge|evaluation|/.dockerenv|docker|container|ci)\b.{0,200}\b(benign|skip|return|do nothing|sleep|time\.sleep|settimeout|delay|defer)\b",
+            text,
+            re.I | re.S,
+        )
+        or re.search(
+            r"\b(scanner|sandbox|ctf|judge|evaluation|/.dockerenv|docker|container|ci)\b.{0,160}\b(if|when|unless|case)\b.{0,200}\b(benign|skip|return|do nothing|sleep|time\.sleep|settimeout|delay|defer)\b",
+            text,
+            re.I | re.S,
+        )
+    )
 
 
 def _is_hidden(relpath: str) -> bool:
@@ -866,7 +967,19 @@ def _safe_subprocess_argv(text: str) -> bool:
         return False
     if re.search(r"(os\.system|child_process|execSync|bash\s+-c|/bin/sh)", text, re.I):
         return False
-    return re.search(r"subprocess\.run\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*,", text) is not None and re.search(r"[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*\[[^\]]+", text, re.S) is not None
+    return bool(
+        (
+            re.search(r"subprocess\.run\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*,", text) is not None
+            and re.search(r"[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*\[[^\]]+", text, re.S) is not None
+        )
+        or re.search(r"subprocess\.run\(\s*\[[^\]]+\]\s*,", text, re.S) is not None
+    )
+
+
+def _looks_like_safe_local_cli_invocation(line: str, file_text: str) -> bool:
+    if not re.search(r"\bsubprocess\.run\(", line):
+        return False
+    return _safe_subprocess_argv(file_text)
 
 
 def _looks_like_service_api_credential(line: str, file_text: str) -> bool:
@@ -874,6 +987,8 @@ def _looks_like_service_api_credential(line: str, file_text: str) -> bool:
     if any(marker in lowered for marker in (".ssh", "id_rsa", "login data", "cookies", "keychain", "git-credentials")):
         return False
     if _exfil_line(lowered):
+        return False
+    if "webhook" in lowered or "history.jsonl" in lowered or "conversation history" in lowered:
         return False
     file_lowered = file_text.lower()
     service_names = (
@@ -894,6 +1009,7 @@ def _looks_like_service_api_credential(line: str, file_text: str) -> bool:
         "paypal",
         "salesforce",
         "slack",
+        "snowflake",
         "stripe",
         "zendesk",
     )
@@ -909,6 +1025,76 @@ def _looks_like_service_api_credential(line: str, file_text: str) -> bool:
     )
 
 
+def _looks_like_skill_config_reference(line: str) -> bool:
+    lowered = line.lower()
+    if any(marker in lowered for marker in ("history.jsonl", "conversation history", "chat history", ".codex", ".cursor")):
+        return False
+    if not re.search(r"\.(claude|agent|skill)[/\w.-]{0,80}/skills?/", lowered):
+        return False
+    return bool(re.search(r"(?<!\w)(\.env|settings|config|readme|skill\.md|export|manually|directory)\b", lowered))
+
+
+def _looks_like_tooling_reference(line: str, file_text: str) -> bool:
+    lowered = line.lower()
+    if _exfil_line(lowered):
+        return False
+    if re.search(r"\b(open\(|read_text|readfilesync|requests\.post|fetch\(|curl\s+-x\s*post)\b", lowered) and any(
+        marker in lowered for marker in ("history.jsonl", "auth.json", "credentials", "cookies", "login data")
+    ):
+        return False
+    context = file_text.lower()
+    docs_context = any(marker in context for marker in ("troubleshoot", "debug", "documentation", "reference", "setup", "configuration", "cli options", "integration pattern"))
+    tooling_marker = any(
+        marker in lowered
+        for marker in (
+            ".claude/skills",
+            "~/.claude/skills",
+            ".claude/agents",
+            "~/.claude/agents",
+            ".claude/agents/name.md",
+            "~/.claude/agents/name.md",
+            "settings.json",
+            "settings.local.json",
+            "code.claude.com/docs/en/",
+            "anthropic_api_key",
+            "openai_api_key",
+            ".env",
+            "env vars",
+            "secrets.",
+            "credentials(",
+        )
+    )
+    benign_action = any(
+        marker in lowered
+        for marker in (
+            "ls ",
+            "mkdir",
+            "head ",
+            "grep ",
+            "jq ",
+            "echo ",
+            "set env",
+            "environment variable",
+            "api key for",
+            "permissions",
+            "docs/en/",
+            "must have:",
+            "wrong location",
+            "missing",
+            "(user)",
+            "(project)",
+            "credentials(",
+            "secrets.",
+            "api key for",
+            "audit-log",
+            "env vars",
+            ".env",
+            ".claude/hooks",
+        )
+    )
+    return docs_context and tooling_marker and benign_action
+
+
 def _looks_like_secret_linter_fixture(line: str, file_text: str) -> bool:
     lowered = line.lower()
     if not any(marker in lowered for marker in (".env.example", "example.env", "sample.env", "fixture", "testdata")):
@@ -921,8 +1107,14 @@ def _looks_like_secret_linter_fixture(line: str, file_text: str) -> bool:
 
 def _looks_like_user_story_text(line: str) -> bool:
     lowered = line.lower()
-    text_markers = ("paragraph", "heading", "scenario", "user story", "as a returning user", "chat history", "conversation history")
-    return any(marker in lowered for marker in text_markers)
+    text_markers = ("paragraph", "heading", "scenario", "user story", "as a returning user", "acceptance criteria")
+    if any(marker in lowered for marker in text_markers):
+        return True
+    return bool(
+        re.search(r"\b(given|when|then|as a user|i want)\b", lowered)
+        and re.search(r"\b(chat|message|messages|conversation)\b", lowered)
+        and not re.search(r"\b(read_text|open\(|history\.jsonl|upload|webhook|collector|requests\.post|curl)\b", lowered)
+    )
 
 
 def _exfil_line(lowered: str) -> bool:
@@ -989,14 +1181,30 @@ def _document_local_history_egress(lowered: str) -> bool:
 
 
 def _document_telemetry_exfiltration(lowered: str) -> bool:
-    telemetry = re.search(r"\b(logs?|telemetry|analytics|audit|monitoring)\b", lowered)
-    sensitive = re.search(
-        r"\b(user prompt|full prompt|conversation|chat history|workspace files?|command output|terminal output|environment variables?|env vars?|secrets?|credentials?)\b",
-        lowered,
-    )
-    broad = re.search(r"\b(all|full|complete|entire|every|each)\b", lowered)
-    egress = re.search(r"\b(send|upload|forward|post|webhook|external|collector|endpoint|slack|discord)\b|https?://", lowered)
-    return bool(telemetry and sensitive and (broad or egress))
+    telemetry = r"\b(logs?|logging|telemetry|analytics|audit|monitoring)\b"
+    sensitive = r"\b(user prompt|full prompt|conversation|chat history|workspace files?|command output|terminal output|environment variables?|env vars?|secrets?|credentials?)\b"
+    broad = r"\b(all|full|complete|entire|every|each)\b"
+    egress = r"\b(send|upload|forward|post|webhook|external|collector|endpoint|slack|discord)\b|https?://"
+    for window in _text_windows(lowered, max_lines=8):
+        if _looks_like_tooling_reference(window, lowered):
+            continue
+        if re.search(r"\b(audit-log\.sh|\.claude/audit\.log|tail\s+-\d+\s+\.claude/audit\.log|grep\s+-i\s+error\s+\.claude/audit\.log)\b", window, re.I):
+            continue
+        if (
+            re.search(telemetry, window, re.I)
+            and re.search(sensitive, window, re.I)
+            and (re.search(broad, window, re.I) or re.search(egress, window, re.I))
+        ):
+            return True
+    return False
+
+
+def _text_windows(text: str, max_lines: int = 8) -> list[str]:
+    lines = text.splitlines()
+    windows: list[str] = []
+    for index in range(len(lines)):
+        windows.append("\n".join(lines[index : index + max_lines]))
+    return windows
 
 
 def _nearby(lowered: str, first_pattern: str, second_pattern: str, window: int = 260) -> bool:

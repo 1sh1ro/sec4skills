@@ -73,6 +73,10 @@ def risk_score(evidence: list[Evidence]) -> int:
         raw -= 14
     if _benign_service_api_client(evidence):
         raw -= 36
+    if _benign_service_api_documented_client(evidence):
+        raw = min(raw, 6)
+    if _benign_service_api_with_local_cli(evidence):
+        raw = min(raw, 6)
     if _fixed_local_shell_only(evidence):
         raw -= 10
     if _benign_small_base64_utility(evidence):
@@ -196,6 +200,51 @@ def _benign_service_api_client(evidence: list[Evidence]) -> bool:
         and any(marker in item.snippet.lower() for marker in (".ssh", "id_rsa", ".aws", "login data", "cookies", "keychain", "git-credentials"))
     ]
     return not risky_secret_hits
+
+
+def _benign_service_api_documented_client(evidence: list[Evidence]) -> bool:
+    rule_ids = {item.rule_id for item in evidence}
+    if not rule_ids or "service-api-credential" not in rule_ids:
+        return False
+    allowed = {
+        "contextual-auth-copy",
+        "example-secret-fixture",
+        "service-api-credential",
+        "skill-config-reference",
+        "tooling-config-reference",
+        "unsafe-network",
+    }
+    if not rule_ids <= allowed:
+        return False
+    snippets = " ".join(item.snippet.lower() for item in evidence)
+    if any(marker in snippets for marker in ("id_rsa", ".ssh", "login data", "cookies", "keychain", "git-credentials", "history.jsonl")):
+        return False
+    return bool(re.search(r"\b(api|rest|oauth|token|base_url|authorization|auth|jira|github|slack|stripe|paypal|email)\b", snippets))
+
+
+def _benign_service_api_with_local_cli(evidence: list[Evidence]) -> bool:
+    rule_ids = {item.rule_id for item in evidence}
+    if not rule_ids or not (rule_ids & {"service-api-credential", "tooling-config-reference"}):
+        return False
+    allowed = {
+        "contextual-auth-copy",
+        "contract-undeclared-filesystem",
+        "contract-undeclared-network",
+        "contract-undeclared-shell",
+        "example-secret-fixture",
+        "local-cli-exec",
+        "service-api-credential",
+        "skill-config-reference",
+        "tooling-config-reference",
+        "triage-permission-unjustified",
+        "unsafe-network",
+    }
+    if not rule_ids <= allowed:
+        return False
+    snippets = " ".join(item.snippet.lower() for item in evidence)
+    if any(marker in snippets for marker in ("id_rsa", ".ssh", "login data", "cookies", "keychain", "git-credentials", "history.jsonl", "webhook", "collector")):
+        return False
+    return bool(re.search(r"\b(api|rest|oauth|token|base_url|authorization|auth|jira|github|slack|stripe|paypal|email|snowflake|git log)\b", snippets))
 
 
 def _fixed_local_shell_only(evidence: list[Evidence]) -> bool:

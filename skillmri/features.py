@@ -61,7 +61,9 @@ DETAILED_CAPABILITY_PATTERNS: dict[str, list[re.Pattern[str]]] = {
     ],
     "read_browser_profile": [
         re.compile(r"(\.config/google-chrome|\.mozilla/firefox|Application Support/(Google/Chrome|Firefox))", re.I),
-        re.compile(r"(Login Data|Cookies|Local State|Bookmarks|History)", re.I),
+        re.compile(r"(Login Data|Cookies|Local State)", re.I),
+        re.compile(r"(Google/Chrome|Firefox|browser profile|browser).{0,80}\b(Bookmarks|History)\b", re.I),
+        re.compile(r"\b(Bookmarks|History)\b.{0,80}(Google/Chrome|Firefox|browser profile|browser)", re.I),
     ],
     "shell_exec": CAPABILITY_PATTERNS["shell"],
     "dynamic_exec": [
@@ -245,11 +247,7 @@ def infer_actual_capabilities(files: Iterable[FileRecord]) -> set[str]:
     for record in files:
         if record.is_binary or not is_execution_relevant_file(record):
             continue
-        capability_text = "\n".join(
-            line
-            for line in record.lines
-            if not _metadata_url_line(line)
-        )
+        capability_text = _capability_relevant_text(record)
         for capability, patterns in CAPABILITY_PATTERNS.items():
             if any(pattern.search(capability_text) for pattern in patterns):
                 capabilities.add(capability)
@@ -261,15 +259,25 @@ def infer_detailed_capabilities(files: Iterable[FileRecord]) -> set[str]:
     for record in files:
         if record.is_binary or not is_execution_relevant_file(record):
             continue
-        capability_text = "\n".join(
-            line
-            for line in record.lines
-            if not _metadata_url_line(line)
-        )
+        capability_text = _capability_relevant_text(record)
         for capability, patterns in DETAILED_CAPABILITY_PATTERNS.items():
             if any(pattern.search(capability_text) for pattern in patterns):
                 capabilities.add(capability)
     return capabilities
+
+
+def _capability_relevant_text(record: FileRecord) -> str:
+    text = "\n".join(
+        line
+        for line in record.lines
+        if not _metadata_url_line(line)
+        and not _low_risk_skill_config_line(line)
+        and not _low_risk_service_api_line(line, record.text)
+        and not _low_risk_user_story_line(line)
+    )
+    if _safe_subprocess_argv(record.text):
+        text = re.sub(r"\bsubprocess\.run\s*\(", "subprocess_run_safe(", text)
+    return text
 
 
 def is_documentation_file(record: FileRecord) -> bool:
@@ -287,6 +295,83 @@ def is_execution_relevant_file(record: FileRecord) -> bool:
 def _metadata_url_line(line: str) -> bool:
     lowered = line.lower()
     return any(marker in lowered for marker in ('"$schema"', "'$schema'", '"githuburl"', '"authoravatar"', "json-schema.org"))
+
+
+def _low_risk_skill_config_line(line: str) -> bool:
+    lowered = line.lower()
+    if any(marker in lowered for marker in ("history.jsonl", "conversation history", "chat history", ".codex", ".cursor")):
+        return False
+    if not re.search(r"\.(claude|agent|skill)[/\w.-]{0,80}/skills?/", lowered):
+        return False
+    return bool(re.search(r"(?<!\w)(\.env|settings|config|readme|skill\.md|export|manually|directory)\b", lowered))
+
+
+def _low_risk_service_api_line(line: str, file_text: str) -> bool:
+    lowered = line.lower()
+    if any(marker in lowered for marker in (".ssh", "id_rsa", "login data", "cookies", "keychain", "git-credentials")):
+        return False
+    if re.search(r"\b(requests\.post|httpx\.post|fetch\(|axios\.post|curl)\b.{0,120}\b(token|secret|password|credential|\.env)", lowered, re.I):
+        return False
+    service_names = (
+        "asana",
+        "atlassian",
+        "azure",
+        "discord",
+        "email",
+        "github",
+        "gitlab",
+        "google",
+        "hubspot",
+        "hf",
+        "huggingface",
+        "jira",
+        "linear",
+        "notion",
+        "openai",
+        "paypal",
+        "salesforce",
+        "slack",
+        "snowflake",
+        "stripe",
+        "zendesk",
+    )
+    context = file_text.lower()
+    service_context = any(name in context for name in service_names)
+    env_loader_context = bool(re.search(r"\b(load_?env|dotenv|environment variables?|os\.environ|process\.env)\b", context, re.I))
+    service_token = bool(
+        re.search(
+            r"\b[A-Z][A-Z0-9_]{1,40}_(?:API_)?(?:TOKEN|KEY|SECRET|PASSWORD|BASE_URL|PROJECT_KEY)\b|process\.env\.[A-Z][A-Z0-9_]+|os\.environ\.get\(['\"][A-Z][A-Z0-9_]+",
+            line,
+        )
+    )
+    if ".env" in lowered and service_context and env_loader_context:
+        return True
+    if "os.environ.setdefault" in lowered and service_context and env_loader_context:
+        return True
+    return service_context and env_loader_context and service_token
+
+
+def _low_risk_user_story_line(line: str) -> bool:
+    lowered = line.lower()
+    return bool(
+        re.search(r"\b(given|when|then|as a user|i want|scenario|user story|acceptance criteria)\b", lowered)
+        and re.search(r"\b(chat|message|messages|conversation)\b", lowered)
+        and not re.search(r"\b(read_text|open\(|history\.jsonl|upload|webhook|collector|requests\.post|curl)\b", lowered)
+    )
+
+
+def _safe_subprocess_argv(text: str) -> bool:
+    if "shell=True" in text:
+        return False
+    if re.search(r"(os\.system|child_process|execSync|bash\s+-c|/bin/sh)", text, re.I):
+        return False
+    return bool(
+        (
+            re.search(r"subprocess\.run\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*,", text) is not None
+            and re.search(r"[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*\[[^\]]+", text, re.S) is not None
+        )
+        or re.search(r"subprocess\.run\(\s*\[[^\]]+\]\s*,", text, re.S) is not None
+    )
 
 
 def line_evidence(

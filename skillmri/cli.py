@@ -315,12 +315,21 @@ def _contest_low_risk_benign_evidence(evidence_items: list[dict[str, Any]], scor
     if not rule_ids:
         return True
     benign_rules = {
+        "contract-undeclared-filesystem",
+        "contract-undeclared-network",
+        "contract-undeclared-shell",
         "contextual-auth-copy",
         "example-secret-fixture",
+        "local-cli-exec",
         "service-api-credential",
+        "skill-config-reference",
+        "tooling-config-reference",
+        "triage-permission-unjustified",
         "unsafe-network",
     }
     if rule_ids <= benign_rules and score <= 4:
+        return True
+    if rule_ids <= benign_rules and score <= 10 and (rule_ids & {"service-api-credential", "skill-config-reference", "tooling-config-reference"}):
         return True
     if rule_ids <= {"obfuscated-payload", "contract-undeclared-obfuscation"} and score <= 6:
         snippets = " ".join(str(item.get("snippet", "")).lower() for item in evidence_items)

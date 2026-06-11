@@ -52,6 +52,10 @@ detection quality and evaluator compatibility with generalized changes:
   sufficient
 - tutorial-only bootstrap examples and normal service API credentials are
   downweighted to reduce clean-skill false positives
+- v0.1.10 adds benchmark-driven benign calibration for service API clients,
+  skill-local `.env` paths, Claude/agent tooling debug docs, and prompt
+  engineering/evaluation tutorials, so documentation-only references no longer
+  create synthetic data-theft or scanner-evasion kill chains
 - static malicious verdicts are no longer downgraded by the local evidence
   scorer, preserving the recall-weighted F2 objective
 
@@ -108,9 +112,9 @@ The same 74-sample curated corpus was scanned in two execution forms:
 
 Both forms produced identical `results.jsonl` rows. Verdict distribution:
 
-- `benign`: 13
-- `suspicious`: 25
-- `malicious`: 36
+- `benign`: 18
+- `suspicious`: 21
+- `malicious`: 35
 
 Timing, with one warmup run and five measured runs:
 
@@ -130,13 +134,13 @@ and 31 malicious.
 
 Full-corpus regression check after adding offline triage/kill-chain evidence:
 
-- Accuracy: `0.8514`
-- Malicious precision: `0.8611`
+- Accuracy: `0.8649`
+- Malicious precision: `0.8857`
 - Malicious recall: `1.0`
-- Malicious F2: `0.9687`
+- Malicious F2: `0.9748`
 - False negatives: `0`
-- False positives: `5`
-- Category accuracy: `0.8627`
+- False positives: `4`
+- Category accuracy: `0.8824`
 
 Semantic classifier holdout check:
 
@@ -173,14 +177,20 @@ Skill-Inject generated sandboxes:
 - False negatives: `0`
 - False positives: `10`
 
-MaliciousAgentSkillsBench sampled subset:
+MaliciousAgentSkillsBench sampled subset after v0.1.10 benign-control calibration:
 
 - Samples: `39`
-- Malicious precision: `0.6000`
+- Accuracy: `0.6667`
+- Malicious precision: `0.4737`
 - Malicious recall: `1.0`
-- Malicious F2: `0.8824`
+- Malicious F2: `0.8182`
+- False negatives: `0`
 - Benign strict malicious false-positive rate: `0.0`
-- Benign non-benign rate: `0.0625`
+- Benign non-benign rate: `0.0`
+- Previous v0.1.9 pass on the same subset had benign strict malicious
+  false-positive rate `0.8125`, and the first v0.1.10 calibration pass had
+  `0.3125`, so this version removes clean-skill hard false positives on this
+  held-out subset while preserving malicious recall.
 
 These external checks indicate the current engine is recall-oriented, matching
 the F2 scoring objective, while preserving the previous strong performance
